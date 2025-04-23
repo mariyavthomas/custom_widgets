@@ -95,9 +95,10 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
       medicine.lastKeptOrRemovedDate = _selectedDate;
     });
     widget.onKeep(medicine);
-     _updateMedicineHistory();
+    _updateMedicineHistory();
   }
-void _updateMedicineHistory() {
+
+  void _updateMedicineHistory() {
     List<MedicineEntry> newDayList = [];
     for (var medicine in widget.medicines) {
       if (!medicine.isMarkedForRemoval) {
@@ -115,19 +116,20 @@ void _updateMedicineHistory() {
     }
     medicineHistory.add(newDayList);
   }
+
   // Methods to increase and decrease the date
   void _increaseDate() {
     setState(() {
       _selectedDate = _selectedDate.add(Duration(days: 1));
     });
-     _updateMedicineHistory();
+    _updateMedicineHistory();
   }
 
   void _decreaseDate() {
     setState(() {
       _selectedDate = _selectedDate.subtract(Duration(days: 1));
     });
-     _updateMedicineHistory();
+    _updateMedicineHistory();
   }
 
   void handleRemove(MedicineEntry medicine) {
@@ -154,7 +156,8 @@ void _updateMedicineHistory() {
         _selectedDate.month == date.month &&
         _selectedDate.day == date.day;
   }
-Widget _buildHorizontalLabelStrip(String label, Color color) {
+
+  Widget _buildHorizontalLabelStrip(String label, Color color) {
     return Container(
       width: widget.cardWidth,
       decoration: BoxDecoration(
@@ -173,7 +176,6 @@ Widget _buildHorizontalLabelStrip(String label, Color color) {
       ),
     );
   }
-
 
   Widget _buildLabelStrip(String label, Color color) {
     return Container(
@@ -273,114 +275,109 @@ Widget _buildHorizontalLabelStrip(String label, Color color) {
               selectedDayPredicate: (day) => isSameDay(day, _selectedDate),
             ),
           ),
-          SizedBox(
-            width: 100,
-          ),
-          Expanded(
-            child: Container(
-              width: 400,
-              decoration: BoxDecoration(border: Border.all()),
-              child: Stack(
-                children: [
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: Text(
-                      "Medicine as on ${DateFormat('dd-MM-yyyy').format(_selectedDate)}",
-                      style: const TextStyle(fontSize: 18, color: Colors.black),
-                    ),
+          // SizedBox(
+          //   width: 200,
+          // ),
+          Container(
+            width: 500,
+            decoration: BoxDecoration(border: Border.all()),
+            child: Stack(
+              children: [
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: Text(
+                    "Medicine as on ${DateFormat('dd-MM-yyyy').format(_selectedDate)}",
+                    style: const TextStyle(fontSize: 18, color: Colors.black),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 35),
-                    child: ListView.builder(
-                      padding:
-                          EdgeInsets.only(bottom: widget.buttonHeight + 19),
-                      itemCount: filteredMedicines.length,
-                      itemBuilder: (context, index) {
-                        final medicine = filteredMedicines[index];
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 35),
+                  child: ListView.builder(
+                    padding: EdgeInsets.only(bottom: widget.buttonHeight + 19),
+                    itemCount: filteredMedicines.length,
+                    itemBuilder: (context, index) {
+                      final medicine = filteredMedicines[index];
 
-                        final isAddedToday =
-                            _selectedDate.difference(medicine.addedOn).inDays ==
-                                0;
-                        final wasKeptToday =
-                            _wasActionToday(medicine.lastKeptOrRemovedDate);
+                      final isAddedToday =
+                          _selectedDate.difference(medicine.addedOn).inDays ==
+                              0;
+                      final wasKeptToday =
+                          _wasActionToday(medicine.lastKeptOrRemovedDate);
 
-                        final showKeepLabel = medicine.isKept && wasKeptToday;
-                        final showRemoveLabel =
-                            medicine.isMarkedForRemoval && wasKeptToday;
+                      final showKeepLabel = medicine.isKept && wasKeptToday;
+                      final showRemoveLabel =
+                          medicine.isMarkedForRemoval && wasKeptToday;
 
-                        Color cardColor;
+                      Color cardColor;
                       if ((medicine.isKept || medicine.isMarkedForRemoval) &&
                           wasKeptToday) {
                         cardColor = widget.cardColor;
                       } else if (!isAddedToday) {
-                        cardColor = const Color.fromARGB(255, 205, 210, 210); // Light grey
+                        cardColor = const Color.fromARGB(
+                            255, 205, 210, 210); // Light grey
                       } else {
                         cardColor = widget.cardColor;
                       }
 
-                        return Slidable(
-                          key: ValueKey(
-                              medicine.name + medicine.addedOn.toString()),
-                          startActionPane: _canShowKeep(medicine)
-                              ? ActionPane(
-                                  motion: const DrawerMotion(),
-                                  extentRatio: 0.5,
-                                  children: [
-                                    SlidableAction(
-                                      onPressed: (context) =>
-                                          _handleKeep(medicine),
-                                      backgroundColor: widget.keepButtonColor,
-                                      foregroundColor: Colors.white,
-                                      icon: Icons.check,
-                                      label: widget.keepLabel,
-                                      autoClose: true,
-                                      borderRadius: const BorderRadius.only(
-                                          topRight: Radius.circular(10),
-                                          bottomRight: Radius.circular(10)),
-                                      padding: const EdgeInsets.all(5),
-                                    ),
-                                  ],
-                                )
-                              : null,
-                          endActionPane: ActionPane(
-                            motion: const DrawerMotion(),
-                            extentRatio: 0.5,
-                            children: [
-                              SlidableAction(
-                                onPressed: (context) => handleRemove(medicine),
-                                backgroundColor: widget.deleteButtonColor,
-                                foregroundColor: Colors.white,
-                                icon: Icons.delete,
-                                label: widget.deleteLabel,
-                                autoClose: true,
-                                borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(10),
-                                    bottomLeft: Radius.circular(10)),
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 1),
-                            child: Card(
-                              elevation: 7,
-                              shadowColor: Colors.blueGrey,
-                              color: cardColor,
-                              child: SizedBox(
-                                height: widget.cardHeight,
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (showKeepLabel)
-                                      _buildLabelStrip(
-                                          "KEEP",
-                                          const Color.fromARGB(
-                                              255, 103, 190, 56))
-                                    else if (medicine.isNew && isAddedToday)
-                                      _buildLabelStrip(
-                                          "NEW",
-                                          const Color.fromARGB(
-                                              255, 98, 170, 218))
-                                           else if (!isAddedToday &&
+                      return Slidable(
+                        key: ValueKey(
+                            medicine.name + medicine.addedOn.toString()),
+                        startActionPane: _canShowKeep(medicine)
+                            ? ActionPane(
+                                motion: const DrawerMotion(),
+                                extentRatio: 0.5,
+                                children: [
+                                  SlidableAction(
+                                    onPressed: (context) =>
+                                        _handleKeep(medicine),
+                                    backgroundColor: widget.keepButtonColor,
+                                    foregroundColor: Colors.white,
+                                    icon: Icons.check,
+                                    label: widget.keepLabel,
+                                    autoClose: true,
+                                    borderRadius: const BorderRadius.only(
+                                        topRight: Radius.circular(10),
+                                        bottomRight: Radius.circular(10)),
+                                    padding: const EdgeInsets.all(5),
+                                  ),
+                                ],
+                              )
+                            : null,
+                        endActionPane: ActionPane(
+                          motion: const DrawerMotion(),
+                          extentRatio: 0.5,
+                          children: [
+                            SlidableAction(
+                              onPressed: (context) => handleRemove(medicine),
+                              backgroundColor: widget.deleteButtonColor,
+                              foregroundColor: Colors.white,
+                              icon: Icons.delete,
+                              label: widget.deleteLabel,
+                              autoClose: true,
+                              borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(10),
+                                  bottomLeft: Radius.circular(10)),
+                            ),
+                          ],
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 1),
+                          child: Card(
+                            elevation: 7,
+                            shadowColor: Colors.blueGrey,
+                            color: cardColor,
+                            child: SizedBox(
+                              height: widget.cardHeight,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (showKeepLabel)
+                                    _buildLabelStrip("KEEP",
+                                        const Color.fromARGB(255, 103, 190, 56))
+                                  else if (medicine.isNew && isAddedToday)
+                                    _buildLabelStrip("NEW",
+                                        const Color.fromARGB(255, 98, 170, 218))
+                                  else if (!isAddedToday &&
                                       !showKeepLabel &&
                                       !showRemoveLabel &&
                                       !medicine.isKept &&
@@ -388,76 +385,70 @@ Widget _buildHorizontalLabelStrip(String label, Color color) {
                                       !medicine.isNew)
                                     _buildHorizontalLabelStrip(
                                         "NOT REVIEWED", Colors.yellow)
-                                    else
-                                      const SizedBox(width: 25),
-                                    Expanded(
-                                      child: ListTile(
-                                        contentPadding:
-                                            const EdgeInsets.all(12),
-                                        title: Center(
-                                          child: Text(
-                                            medicine.name,
-                                            style: widget.titleTextStyle,
-                                          ),
+                                  else
+                                    const SizedBox(width: 25),
+                                  Expanded(
+                                    child: ListTile(
+                                      contentPadding: const EdgeInsets.all(12),
+                                      title: Center(
+                                        child: Text(
+                                          medicine.name,
+                                          style: widget.titleTextStyle,
                                         ),
                                       ),
                                     ),
-                                    if (showRemoveLabel)
-                                      _buildLabelStrip(
-                                          "REMOVE",
-                                          const Color.fromARGB(
-                                              255, 231, 78, 67))
-                                  
-                                   
-                                  ],
-                                ),
+                                  ),
+                                  if (showRemoveLabel)
+                                    _buildLabelStrip("REMOVE",
+                                        const Color.fromARGB(255, 231, 78, 67))
+                                ],
                               ),
                             ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                  Positioned(
-                    bottom: widget.buttonPadding.bottom,
-                    left: widget.buttonPadding.left,
-                    right: widget.buttonPadding.right,
-                    child: Center(
-                      child: SizedBox(
-                        width: widget.buttonWidth,
-                        height: widget.buttonHeight,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: widget.buttonColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: _showAddMedicineAlertBox,
-                          child: Text(widget.addButtonText,
-                              style: widget.buttonTextStyle),
                         ),
+                      );
+                    },
+                  ),
+                ),
+                Positioned(
+                  bottom: widget.buttonPadding.bottom,
+                  left: widget.buttonPadding.left,
+                  right: widget.buttonPadding.right,
+                  child: Center(
+                    child: SizedBox(
+                      width: widget.buttonWidth,
+                      height: widget.buttonHeight,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: widget.buttonColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: _showAddMedicineAlertBox,
+                        child: Text(widget.addButtonText,
+                            style: widget.buttonTextStyle),
                       ),
                     ),
                   ),
-                  Positioned(
-                      bottom: widget.buttonPadding.bottom,
-                      left: widget.buttonPadding.left,
-                      right: widget.buttonPadding.right,
-                      child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back),
-                              onPressed: _decreaseDate,
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.arrow_forward),
-                              onPressed: _increaseDate,
-                            ),
-                          ]))
-                ],
-              ),
+                ),
+                Positioned(
+                    bottom: widget.buttonPadding.bottom,
+                    left: widget.buttonPadding.left,
+                    right: widget.buttonPadding.right,
+                    child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back),
+                            onPressed: _decreaseDate,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_forward),
+                            onPressed: _increaseDate,
+                          ),
+                        ]))
+              ],
             ),
           ),
         ],
