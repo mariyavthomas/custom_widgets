@@ -79,7 +79,8 @@ class _MedicinePageState extends State<MedicinePage> {
         buttonWidth: 180,
         buttonHeight: 45,
         buttonPadding: EdgeInsets.only(bottom: 20),
-        addButtonText: "Add Medicine",
+        addButtonText: "Add Medicine", 
+        medicines: medicines,
       ),
     );
   }
