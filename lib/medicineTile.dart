@@ -83,6 +83,7 @@ class MedicineListWidget extends StatefulWidget {
 
 class _MedicineListWidgetState extends State<MedicineListWidget> {
   DateTime _selectedDate = DateTime.now();
+  List<List<MedicineEntry>> medicineHistory = [];
 
   void _handleKeep(MedicineEntry medicine) {
     setState(() {
@@ -94,19 +95,39 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
       medicine.lastKeptOrRemovedDate = _selectedDate;
     });
     widget.onKeep(medicine);
+     _updateMedicineHistory();
   }
-
+void _updateMedicineHistory() {
+    List<MedicineEntry> newDayList = [];
+    for (var medicine in widget.medicines) {
+      if (!medicine.isMarkedForRemoval) {
+        newDayList.add(MedicineEntry(
+          name: medicine.name,
+          addedOn: medicine.addedOn,
+          isKept: medicine.isKept,
+          isMarkedForRemoval: medicine.isMarkedForRemoval,
+          isNew: medicine.isNew,
+          markedRemovalTime: medicine.markedRemovalTime,
+          showKeepRemoveAlways: medicine.showKeepRemoveAlways,
+          lastKeptOrRemovedDate: medicine.lastKeptOrRemovedDate,
+        ));
+      }
+    }
+    medicineHistory.add(newDayList);
+  }
   // Methods to increase and decrease the date
   void _increaseDate() {
     setState(() {
       _selectedDate = _selectedDate.add(Duration(days: 1));
     });
+     _updateMedicineHistory();
   }
 
   void _decreaseDate() {
     setState(() {
       _selectedDate = _selectedDate.subtract(Duration(days: 1));
     });
+     _updateMedicineHistory();
   }
 
   void handleRemove(MedicineEntry medicine) {
@@ -118,6 +139,8 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
       medicine.showKeepRemoveAlways = true;
       medicine.lastKeptOrRemovedDate = _selectedDate;
     });
+    // widget.onDelete(medicine);
+    _updateMedicineHistory();
   }
 
   bool _canShowKeep(MedicineEntry medicine) {
@@ -207,6 +230,7 @@ Widget _buildHorizontalLabelStrip(String label, Color color) {
                   Navigator.pop(context);
                   setState(() {
                     widget.medicines.add(newMedicine);
+                    _updateMedicineHistory();
                   });
                 }
               },
@@ -244,6 +268,7 @@ Widget _buildHorizontalLabelStrip(String label, Color color) {
                 setState(() {
                   _selectedDate = selectedDay;
                 });
+                _updateMedicineHistory();
               },
               selectedDayPredicate: (day) => isSameDay(day, _selectedDate),
             ),
@@ -355,6 +380,14 @@ Widget _buildHorizontalLabelStrip(String label, Color color) {
                                           "NEW",
                                           const Color.fromARGB(
                                               255, 98, 170, 218))
+                                           else if (!isAddedToday &&
+                                      !showKeepLabel &&
+                                      !showRemoveLabel &&
+                                      !medicine.isKept &&
+                                      !medicine.isMarkedForRemoval &&
+                                      !medicine.isNew)
+                                    _buildHorizontalLabelStrip(
+                                        "NOT REVIEWED", Colors.yellow)
                                     else
                                       const SizedBox(width: 25),
                                     Expanded(
@@ -374,14 +407,7 @@ Widget _buildHorizontalLabelStrip(String label, Color color) {
                                           "REMOVE",
                                           const Color.fromARGB(
                                               255, 231, 78, 67))
-                                     else if (!isAddedToday &&
-                                      !showKeepLabel &&
-                                      !showRemoveLabel &&
-                                      !medicine.isKept &&
-                                      !medicine.isMarkedForRemoval &&
-                                      !medicine.isNew)
-                                    _buildHorizontalLabelStrip(
-                                        "NOT REVIEWED", Colors.yellow),
+                                  
                                    
                                   ],
                                 ),
