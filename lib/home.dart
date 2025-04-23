@@ -69,7 +69,7 @@ class _MedicinePageState extends State<MedicinePage> {
         backgroundColor: Colors.black,
       ),
       body: MedicineListWidget(
-        medicines: medicines,
+        
         onAddPressed: _addMedicine,
         onDelete: _deleteMedicine,
         onKeep: _keepMedicine,
