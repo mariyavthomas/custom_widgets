@@ -7,8 +7,12 @@ class MedicinePage extends StatefulWidget {
 }
 
 class _MedicinePageState extends State<MedicinePage> {
-  List<MedicineEntry> medicines = [];
-
+ late final Map<String, List<MedicineEntry>> medicines;
+@override
+void initState() {
+  super.initState();
+  medicines = {}; // Now it's initialized in initState
+}
   void _addMedicine() {
     TextEditingController nameController = TextEditingController();
     showDialog(
@@ -29,11 +33,14 @@ class _MedicinePageState extends State<MedicinePage> {
               onPressed: () {
                 if (nameController.text.isNotEmpty) {
                   setState(() {
-                    medicines.add(
-                      MedicineEntry(
-                        name: nameController.text,
-                        addedOn: DateTime.now(),
-                      ),
+                    medicines.putIfAbsent(
+                      nameController.text,
+                      () => [
+                        MedicineEntry(
+                          name: nameController.text,
+                          addedOn: DateTime.now(),
+                        ),
+                      ],
                     );
                   });
                   Navigator.pop(context);
@@ -59,28 +66,30 @@ class _MedicinePageState extends State<MedicinePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Medicine List',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold,color: Colors.white),
+    return SafeArea(
+      child: Scaffold(
+        // appBar: AppBar(
+        //   title: Text(
+        //     'Medicine List',
+        //     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold,color: Colors.white),
+        //   ),
+        //   centerTitle: true,
+        //   backgroundColor: Colors.black,
+        // ),
+        body: MedicineListWidget(
+          
+          onAddPressed: _addMedicine,
+          onDelete: _deleteMedicine,
+          onKeep: _keepMedicine,
+          cardWidth: MediaQuery.of(context).size.width * 0.99,
+          cardHeight: 110,
+          cardPadding: EdgeInsets.all(5),
+          buttonWidth: 180,
+          buttonHeight: 45,
+          buttonPadding: EdgeInsets.only(bottom: 20),
+          addButtonText: "Add Medicine", 
+          medicines:medicines,
         ),
-        centerTitle: true,
-        backgroundColor: Colors.black,
-      ),
-      body: MedicineListWidget(
-        
-        onAddPressed: _addMedicine,
-        onDelete: _deleteMedicine,
-        onKeep: _keepMedicine,
-        cardWidth: MediaQuery.of(context).size.width * 0.99,
-        cardHeight: 110,
-        cardPadding: EdgeInsets.all(5),
-        buttonWidth: 180,
-        buttonHeight: 45,
-        buttonPadding: EdgeInsets.only(bottom: 20),
-        addButtonText: "Add Medicine", 
-        medicines: medicines,
       ),
     );
   }

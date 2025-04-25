@@ -1,8 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
-import 'package:table_calendar/table_calendar.dart';
 
 class MedicineEntry {
   String name;
@@ -27,7 +25,7 @@ class MedicineEntry {
 }
 
 class MedicineListWidget extends StatefulWidget {
-  final List<MedicineEntry> medicines;
+  final Map<String, List<MedicineEntry>> medicines;
   final VoidCallback onAddPressed;
   final Function(MedicineEntry) onDelete;
   final Function(MedicineEntry) onKeep;
@@ -61,7 +59,7 @@ class MedicineListWidget extends StatefulWidget {
     this.buttonWidth = 200,
     this.buttonHeight = 50,
     this.buttonPadding = const EdgeInsets.only(bottom: 16),
-    this.cardColor = const Color.fromARGB(255, 222, 221, 223),
+    this.cardColor = Colors.white,
     this.titleTextStyle = const TextStyle(
         color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
     this.subtitleTextStyle =
@@ -83,8 +81,6 @@ class MedicineListWidget extends StatefulWidget {
 
 class _MedicineListWidgetState extends State<MedicineListWidget> {
   DateTime _selectedDate = DateTime.now();
-  List<List<MedicineEntry>> medicineHistory = [];
-
   void _handleKeep(MedicineEntry medicine) {
     setState(() {
       medicine.isKept = true;
@@ -92,44 +88,9 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
       medicine.isNew = false;
       medicine.markedRemovalTime = null;
       medicine.showKeepRemoveAlways = true;
-      medicine.lastKeptOrRemovedDate = _selectedDate;
+      medicine.lastKeptOrRemovedDate = DateTime.now();
     });
     widget.onKeep(medicine);
-    _updateMedicineHistory();
-  }
-
-  void _updateMedicineHistory() {
-    List<MedicineEntry> newDayList = [];
-    for (var medicine in widget.medicines) {
-      if (!medicine.isMarkedForRemoval) {
-        newDayList.add(MedicineEntry(
-          name: medicine.name,
-          addedOn: medicine.addedOn,
-          isKept: medicine.isKept,
-          isMarkedForRemoval: medicine.isMarkedForRemoval,
-          isNew: medicine.isNew,
-          markedRemovalTime: medicine.markedRemovalTime,
-          showKeepRemoveAlways: medicine.showKeepRemoveAlways,
-          lastKeptOrRemovedDate: medicine.lastKeptOrRemovedDate,
-        ));
-      }
-    }
-    medicineHistory.add(newDayList);
-  }
-
-  // Methods to increase and decrease the date
-  void _increaseDate() {
-    setState(() {
-      _selectedDate = _selectedDate.add(Duration(days: 1));
-    });
-    _updateMedicineHistory();
-  }
-
-  void _decreaseDate() {
-    setState(() {
-      _selectedDate = _selectedDate.subtract(Duration(days: 1));
-    });
-    _updateMedicineHistory();
   }
 
   void handleRemove(MedicineEntry medicine) {
@@ -137,24 +98,97 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
       medicine.isMarkedForRemoval = true;
       medicine.isKept = false;
       medicine.isNew = false;
-      medicine.markedRemovalTime = _selectedDate.add(const Duration(hours: 24));
+      medicine.markedRemovalTime =
+          DateTime.now().add(const Duration(hours: 24));
       medicine.showKeepRemoveAlways = true;
-      medicine.lastKeptOrRemovedDate = _selectedDate;
+      medicine.lastKeptOrRemovedDate = DateTime.now();
     });
-    // widget.onDelete(medicine);
-    _updateMedicineHistory();
   }
 
   bool _canShowKeep(MedicineEntry medicine) {
-    final isOldEnough = _selectedDate.difference(medicine.addedOn).inDays >= 1;
-    return isOldEnough || medicine.showKeepRemoveAlways;
+    final now = DateTime.now();
+    final isOldEnough = now.difference(medicine.addedOn).inDays >= 1;
+    return (isOldEnough || medicine.showKeepRemoveAlways);
   }
 
   bool _wasActionToday(DateTime? date) {
     if (date == null) return false;
-    return _selectedDate.year == date.year &&
-        _selectedDate.month == date.month &&
-        _selectedDate.day == date.day;
+    final now = DateTime.now();
+    return now.year == date.year &&
+        now.month == date.month &&
+        now.day == date.day;
+  }
+
+  Widget _buildLabelStrip(String label, Color color) {
+    return Container(
+      width: 25,
+      height: widget.cardHeight,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(10), bottomLeft: Radius.circular(10)),
+      ),
+      child: Center(
+        child: RotatedBox(
+          quarterTurns: 3,
+          child: Text(label,
+              style: const TextStyle(color: Colors.black, fontSize: 12)),
+        ),
+      ),
+    );
+  }
+
+  void _showAddMedicineBottomSheet() {
+    String medicineName = '';
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (context) {
+        return Padding(
+          padding: MediaQuery.of(context).viewInsets,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("Add New Medicine",
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                TextField(
+                  decoration: const InputDecoration(
+                      labelText: 'Medicine Name', border: OutlineInputBorder()),
+                  onChanged: (value) {
+                    medicineName = value;
+                  },
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    if (medicineName.trim().isNotEmpty) {
+                      final newMedicine = MedicineEntry(
+                        name: medicineName.trim(),
+                        addedOn: DateTime.now(),
+                      );
+                      Navigator.pop(context);
+                      final key =
+                          DateFormat('yyyy-MM-dd').format(_selectedDate);
+                      setState(() {
+                        widget.medicines.putIfAbsent(key, () => []);
+                        widget.medicines[key]!.add(newMedicine);
+                      });
+                    }
+                  },
+                  child: const Text("Add"),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildHorizontalLabelStrip(String label, Color color) {
@@ -177,147 +211,286 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
     );
   }
 
-  Widget _buildLabelStrip(String label, Color color) {
-    return Container(
-      width: 25,
-      height: widget.cardHeight,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(10), bottomLeft: Radius.circular(10)),
-      ),
-      child: Center(
-        child: RotatedBox(
-          quarterTurns: 3,
-          child: Text(label,
-              style: const TextStyle(color: Colors.black, fontSize: 12)),
-        ),
-      ),
-    );
-  }
-
-  void _showAddMedicineAlertBox() {
-    String medicineName = '';
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text("Add New Medicine",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          content: TextField(
-            decoration: const InputDecoration(
-              labelText: 'Medicine Name',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (value) {
-              medicineName = value;
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (medicineName.trim().isNotEmpty) {
-                  final newMedicine = MedicineEntry(
-                    name: medicineName.trim(),
-                    addedOn: DateTime.now(),
-                  );
-                  //_medicineBox.add(newMedicine);
-                  Navigator.pop(context);
-                  setState(() {
-                    widget.medicines.add(newMedicine);
-                    _updateMedicineHistory();
-                  });
-                }
-              },
-              child: const Text("Add"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final filteredMedicines = widget.medicines.where((medicine) {
+    final now = DateTime.now();
+    final selectedKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final todayMedicines = widget.medicines[selectedKey] ?? [];
+
+    final filteredMedicines = todayMedicines.where((medicine) {
       if (medicine.isMarkedForRemoval &&
           medicine.markedRemovalTime != null &&
-          _selectedDate.isAfter(medicine.markedRemovalTime!)) {
+          now.isAfter(medicine.markedRemovalTime!)) {
         widget.onDelete(medicine);
         return false;
       }
       return true;
     }).toList();
+    // Methods to increase and decrease the date
+    void _increaseDate() {
+      setState(() {
+        _selectedDate = _selectedDate.add(Duration(days: 1));
+      });
+    }
 
+    void _decreaseDate() {
+      setState(() {
+        _selectedDate = _selectedDate.subtract(Duration(days: 1));
+      });
+    }
+
+    // return Padding(
+    //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+    //   child: Column(
+    //     children: [
+    //       SizedBox(
+    //         height: 10,
+    //       ),
+    //       Align(
+    //         alignment: Alignment.topCenter,
+    //         child: Text(
+    //           "Medicine as on ${DateFormat('dd-MM-yyyy').format(_selectedDate)}",
+    //           style: const TextStyle(fontSize: 18, color: Colors.black),
+    //         ),
+    //       ),
+    //       Expanded(
+    //         child: Stack(
+    //           children: [
+    //             ListView.builder(
+    //               padding: EdgeInsets.only(bottom: widget.buttonHeight + 19),
+    //               itemCount: filteredMedicines.length,
+    //               itemBuilder: (context, index) {
+    //                 final medicine = filteredMedicines[index];
+
+    //                 final bool isAddedToday =
+    //                     now.difference(medicine.addedOn).inDays == 0;
+
+    //                 final bool wasKeptToday =
+    //                     _wasActionToday(medicine.lastKeptOrRemovedDate);
+
+    //                 final showKeepLabel = medicine.isKept && wasKeptToday;
+
+    //                 final showRemoveLabel =
+    //                     medicine.isMarkedForRemoval && wasKeptToday;
+
+    //                 Color cardColor;
+
+    //                 if ((medicine.isKept || medicine.isMarkedForRemoval) &&
+    //                     wasKeptToday) {
+    //                   cardColor = widget.cardColor;
+    //                 } else if (!isAddedToday) {
+    //                   cardColor = Colors.white;
+    //                 } else {
+    //                   cardColor = widget.cardColor;
+    //                 }
+
+    //                 return Slidable(
+    //                   key:
+    //                       ValueKey(medicine.name + medicine.addedOn.toString()),
+    //                   startActionPane: _canShowKeep(medicine)
+    //                       ? ActionPane(
+    //                           motion: const DrawerMotion(),
+    //                           extentRatio: 0.5,
+    //                           children: [
+    //                             SlidableAction(
+    //                               onPressed: (context) => _handleKeep(medicine),
+    //                               backgroundColor: widget.keepButtonColor,
+    //                               foregroundColor: Colors.white,
+    //                               icon: Icons.check,
+    //                               label: widget.keepLabel,
+    //                               autoClose: true,
+    //                               borderRadius: const BorderRadius.only(
+    //                                   topRight: Radius.circular(10),
+    //                                   bottomRight: Radius.circular(10)),
+    //                               padding: const EdgeInsets.all(5),
+    //                             ),
+    //                           ],
+    //                         )
+    //                       : null,
+    //                   endActionPane: ActionPane(
+    //                     motion: const DrawerMotion(),
+    //                     extentRatio: 0.5,
+    //                     children: [
+    //                       SlidableAction(
+    //                         onPressed: (context) => handleRemove(medicine),
+    //                         backgroundColor: widget.deleteButtonColor,
+    //                         foregroundColor: Colors.white,
+    //                         icon: Icons.delete,
+    //                         label: widget.deleteLabel,
+    //                         autoClose: true,
+    //                         borderRadius: const BorderRadius.only(
+    //                             topLeft: Radius.circular(10),
+    //                             bottomLeft: Radius.circular(10)),
+    //                       ),
+    //                     ],
+    //                   ),
+    //                   child: Padding(
+    //                     padding: const EdgeInsets.only(bottom: 1),
+    //                     child: Card(
+    //                       elevation: 7,
+    //                       shadowColor: Colors.blueGrey,
+    //                       color: cardColor,
+    //                       child: SizedBox(
+    //                         height: widget.cardHeight,
+    //                         child: Row(
+    //                           crossAxisAlignment: CrossAxisAlignment.start,
+    //                           children: [
+    //                             if (showKeepLabel)
+    //                               _buildLabelStrip("KEEP",
+    //                                   const Color.fromARGB(255, 103, 190, 56))
+    //                             else if (medicine.isNew && isAddedToday)
+    //                               _buildLabelStrip("NEW",
+    //                                   const Color.fromARGB(255, 98, 170, 218))
+    //                             else if (!isAddedToday &&
+    //                                 !showKeepLabel &&
+    //                                 !showRemoveLabel &&
+    //                                 !medicine.isKept &&
+    //                                 !medicine.isMarkedForRemoval &&
+    //                                 !medicine.isNew)
+    //                               _buildHorizontalLabelStrip(
+    //                                   "NOT REVIEWED", Colors.yellow)
+    //                             else
+    //                               const SizedBox(width: 25),
+    //                             Expanded(
+    //                               child: ListTile(
+    //                                 contentPadding: const EdgeInsets.all(12),
+    //                                 title: Center(
+    //                                   child: Text(
+    //                                     medicine.name,
+    //                                     style: widget.titleTextStyle,
+    //                                   ),
+    //                                 ),
+    //                               ),
+    //                             ),
+    //                             if (showRemoveLabel)
+    //                               _buildLabelStrip("REMOVE",
+    //                                   const Color.fromARGB(255, 231, 78, 67))
+    //                             else
+    //                               const SizedBox(width: 40),
+    //                           ],
+    //                         ),
+    //                       ),
+    //                     ),
+    //                   ),
+    //                 );
+    //               },
+    //             ),
+    //             // Add Button Positioned
+    //             Positioned(
+    //               bottom: widget.buttonPadding.bottom,
+    //               left: widget.buttonPadding.left,
+    //               right: widget.buttonPadding.right,
+    //               child: Center(
+    //                 child: SizedBox(
+    //                   width: widget.buttonWidth,
+    //                   height: widget.buttonHeight,
+    //                   child: ElevatedButton(
+    //                     style: ElevatedButton.styleFrom(
+    //                       backgroundColor: widget.buttonColor,
+    //                       shape: RoundedRectangleBorder(
+    //                         borderRadius: BorderRadius.circular(12),
+    //                       ),
+    //                     ),
+    //                     onPressed: _showAddMedicineBottomSheet,
+    //                     child: Text(widget.addButtonText,
+    //                         style: widget.buttonTextStyle),
+    //                   ),
+    //                 ),
+    //               ),
+    //             ),
+    //             Positioned(
+    //               bottom: widget.buttonPadding.bottom + 60,
+    //               left: widget.buttonPadding.left,
+    //               right: widget.buttonPadding.right,
+    //               child: Row(
+    //                 mainAxisAlignment: MainAxisAlignment.center,
+    //                 children: [
+    //                   IconButton(
+    //                       icon: Icon(Icons.arrow_back),
+    //                       onPressed: () {
+    //                         setState(() {
+    //                           _selectedDate = _selectedDate
+    //                               .subtract(const Duration(days: 1));
+    //                         });
+    //                       }),
+    //                   Text(
+    //                     DateFormat('dd-MM-yyyy').format(_selectedDate),
+    //                     style: TextStyle(fontSize: 16),
+    //                   ),
+    //                   IconButton(
+    //                       icon: Icon(Icons.arrow_forward),
+    //                       onPressed: () {
+    //                         setState(() {
+    //                           _selectedDate =
+    //                               _selectedDate.add(const Duration(days: 1));
+    //                         });
+    //                       }),
+    //                 ],
+    //               ),
+    //             ),
+    //           ],
+    //         ),
+    //       ),
+    //     ],
+    //   ),
+    // );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      child: Row(
+      child: Column(
         children: [
-          SizedBox(
-            width: 500,
-            child: TableCalendar(
-              focusedDay: _selectedDate,
-              firstDay: DateTime.utc(2020, 01, 01),
-              lastDay: DateTime.utc(2030, 12, 31),
-              onDaySelected: (selectedDay, focusedDay) {
-                setState(() {
-                  _selectedDate = selectedDay;
-                });
-                _updateMedicineHistory();
-              },
-              selectedDayPredicate: (day) => isSameDay(day, _selectedDate),
-            ),
+          const SizedBox(height: 10),
+          Text(
+            "Medicine as on ${DateFormat('dd-MM-yyyy').format(_selectedDate)}",
+            style: const TextStyle(fontSize: 18, color: Colors.black),
           ),
-          // SizedBox(
-          //   width: 200,
-          // ),
-          Container(
-            width: 500,
-            decoration: BoxDecoration(border: Border.all()),
-            child: Stack(
-              children: [
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: Text(
-                    "Medicine as on ${DateFormat('dd-MM-yyyy').format(_selectedDate)}",
-                    style: const TextStyle(fontSize: 18, color: Colors.black),
-                  ),
+          const SizedBox(height: 10),
+          if (filteredMedicines.isEmpty)
+            Expanded(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                        onPressed: _decreaseDate, icon: Icon(Icons.arrow_back)),
+                    ElevatedButton(
+                      onPressed: _showAddMedicineBottomSheet,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: widget.buttonColor,
+                        fixedSize:
+                            Size(widget.buttonWidth, widget.buttonHeight),
+                      ),
+                      child: Text(widget.addButtonText,
+                          style: widget.buttonTextStyle),
+                    ),
+                    IconButton(
+                        onPressed: _increaseDate,
+                        icon: Icon(Icons.arrow_forward)),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 35),
-                  child: ListView.builder(
+              ),
+            )
+          else
+            Expanded(
+              child: Stack(
+                children: [
+                  ListView.builder(
                     padding: EdgeInsets.only(bottom: widget.buttonHeight + 19),
                     itemCount: filteredMedicines.length,
                     itemBuilder: (context, index) {
                       final medicine = filteredMedicines[index];
 
-                      final isAddedToday =
-                          _selectedDate.difference(medicine.addedOn).inDays ==
-                              0;
-                      final wasKeptToday =
+                      final bool isAddedToday =
+                          now.difference(medicine.addedOn).inDays == 0;
+
+                      final bool wasKeptToday =
                           _wasActionToday(medicine.lastKeptOrRemovedDate);
 
                       final showKeepLabel = medicine.isKept && wasKeptToday;
                       final showRemoveLabel =
                           medicine.isMarkedForRemoval && wasKeptToday;
 
-                      Color cardColor;
-                      if ((medicine.isKept || medicine.isMarkedForRemoval) &&
-                          wasKeptToday) {
-                        cardColor = widget.cardColor;
-                      } else if (!isAddedToday) {
-                        cardColor = const Color.fromARGB(
-                            255, 205, 210, 210); // Light grey
-                      } else {
-                        cardColor = widget.cardColor;
-                      }
+                      Color cardColor = widget.cardColor;
 
                       return Slidable(
                         key: ValueKey(
@@ -335,10 +508,6 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                     icon: Icons.check,
                                     label: widget.keepLabel,
                                     autoClose: true,
-                                    borderRadius: const BorderRadius.only(
-                                        topRight: Radius.circular(10),
-                                        bottomRight: Radius.circular(10)),
-                                    padding: const EdgeInsets.all(5),
                                   ),
                                 ],
                               )
@@ -354,9 +523,6 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                               icon: Icons.delete,
                               label: widget.deleteLabel,
                               autoClose: true,
-                              borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(10),
-                                  bottomLeft: Radius.circular(10)),
                             ),
                           ],
                         ),
@@ -372,11 +538,9 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   if (showKeepLabel)
-                                    _buildLabelStrip("KEEP",
-                                        const Color.fromARGB(255, 103, 190, 56))
+                                    _buildLabelStrip("KEEP", Colors.green)
                                   else if (medicine.isNew && isAddedToday)
-                                    _buildLabelStrip("NEW",
-                                        const Color.fromARGB(255, 98, 170, 218))
+                                    _buildLabelStrip("NEW", Colors.blue)
                                   else if (!isAddedToday &&
                                       !showKeepLabel &&
                                       !showRemoveLabel &&
@@ -388,6 +552,8 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                   else
                                     const SizedBox(width: 25),
                                   Expanded(
+                                      child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
                                     child: ListTile(
                                       contentPadding: const EdgeInsets.all(12),
                                       title: Center(
@@ -397,10 +563,12 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                         ),
                                       ),
                                     ),
-                                  ),
+                                  )),
                                   if (showRemoveLabel)
                                     _buildLabelStrip("REMOVE",
                                         const Color.fromARGB(255, 231, 78, 67))
+                                  else
+                                    const SizedBox(width: 40),
                                 ],
                               ),
                             ),
@@ -409,48 +577,69 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                       );
                     },
                   ),
-                ),
-                Positioned(
-                  bottom: widget.buttonPadding.bottom,
-                  left: widget.buttonPadding.left,
-                  right: widget.buttonPadding.right,
-                  child: Center(
-                    child: SizedBox(
-                      width: widget.buttonWidth,
-                      height: widget.buttonHeight,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: widget.buttonColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                  Positioned(
+                    bottom: widget.buttonPadding.bottom - 19.6,
+                    left: widget.buttonPadding.left + 60,
+                    right: widget.buttonPadding.right,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Row(children: [
+                        IconButton(
+                            icon: Icon(Icons.arrow_back),
+                            onPressed: _decreaseDate),
+                        ElevatedButton(
+                          onPressed: _showAddMedicineBottomSheet,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: widget.buttonColor,
+                            fixedSize:
+                                Size(widget.buttonWidth, widget.buttonHeight),
                           ),
+                          child: Text(widget.addButtonText,
+                              style: widget.buttonTextStyle),
                         ),
-                        onPressed: _showAddMedicineAlertBox,
-                        child: Text(widget.addButtonText,
-                            style: widget.buttonTextStyle),
-                      ),
+                        IconButton(
+                            icon: Icon(Icons.arrow_forward),
+                            onPressed: _increaseDate),
+                      ]),
                     ),
                   ),
-                ),
-                Positioned(
-                    bottom: widget.buttonPadding.bottom,
-                    left: widget.buttonPadding.left,
-                    right: widget.buttonPadding.right,
-                    child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back),
-                            onPressed: _decreaseDate,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.arrow_forward),
-                            onPressed: _increaseDate,
-                          ),
-                        ]))
-              ],
+                  // Positioned(
+                  //   bottom: widget.buttonPadding.bottom + 60,
+                  //   left: widget.buttonPadding.left,
+                  //   right: widget.buttonPadding.right,
+                  //   child: Row(
+                  //     mainAxisAlignment: MainAxisAlignment.center,
+                  //     children: [
+                  //       IconButton(
+                  //           icon: Icon(Icons.arrow_back),
+                  //           onPressed: _decreaseDate
+                  //           // () {
+                  //           //   setState(() {
+                  //           //     _selectedDate = _selectedDate
+                  //           //         .subtract(const Duration(days: 1));
+                  //           //   });
+                  //           // }
+                  //           ),
+                  //       // Text(
+                  //       //   DateFormat('dd-MM-yyyy').format(_selectedDate),
+                  //       //   style: TextStyle(fontSize: 16),
+                  //       // ),
+                  //       IconButton(
+                  //           icon: Icon(Icons.arrow_forward),
+                  //           onPressed: _increaseDate
+                  //           // () {
+                  //           //   setState(() {
+                  //           //     _selectedDate =
+                  //           //         _selectedDate.add(const Duration(days: 1));
+                  //           //   });
+                  //           // }
+                  //           ),
+                  //     ],
+                  //   ),
+                  // ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
