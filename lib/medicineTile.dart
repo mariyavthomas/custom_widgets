@@ -11,6 +11,7 @@ class MedicineEntry {
   DateTime? markedRemovalTime;
   bool showKeepRemoveAlways;
   DateTime? lastKeptOrRemovedDate;
+  String? status; // Added status field
 
   MedicineEntry({
     required this.name,
@@ -21,6 +22,7 @@ class MedicineEntry {
     this.markedRemovalTime,
     this.showKeepRemoveAlways = false,
     this.lastKeptOrRemovedDate,
+    this.status,
   });
 }
 
@@ -89,6 +91,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
       medicine.markedRemovalTime = null;
       medicine.showKeepRemoveAlways = true;
       medicine.lastKeptOrRemovedDate = DateTime.now();
+      medicine.status = "Keep";
     });
     widget.onKeep(medicine);
   }
@@ -102,6 +105,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
           DateTime.now().add(const Duration(hours: 24));
       medicine.showKeepRemoveAlways = true;
       medicine.lastKeptOrRemovedDate = DateTime.now();
+      medicine.status = "Remove";
     });
   }
 
@@ -171,6 +175,8 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                       final newMedicine = MedicineEntry(
                         name: medicineName.trim(),
                         addedOn: DateTime.now(),
+                        status: "New",
+                        isNew: true,
                       );
                       Navigator.pop(context);
                       final key =
@@ -193,11 +199,14 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
 
   Widget _buildHorizontalLabelStrip(String label, Color color) {
     return Container(
-      width: widget.cardWidth,
+      width: double.infinity, // Fill the card
+      padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: color,
         borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(10), bottomRight: Radius.circular(10)),
+          bottomLeft: Radius.circular(10),
+          bottomRight: Radius.circular(10),
+        ),
       ),
       child: Text(
         label,
@@ -206,9 +215,85 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
           fontSize: 14,
           fontWeight: FontWeight.bold,
         ),
-        textAlign: TextAlign.center, // Center align the text
+        textAlign: TextAlign.center,
       ),
     );
+  }
+
+  bool _isNotReviewedToday(MedicineEntry medicine) {
+    return !medicine.isKept &&
+        !medicine.isMarkedForRemoval &&
+        !_wasActionToday(medicine.lastKeptOrRemovedDate) &&
+        !medicine.isNew;
+  }
+
+  String _getStatusLabel(MedicineEntry med) {
+    if (med.status == null || med.status!.isEmpty) return 'Not Reviewed';
+    return med.status!;
+  }
+
+ void _increaseDate() {
+  final today = _selectedDate;
+  final todayKey = DateFormat('yyyy-MM-dd').format(today);
+
+  final medicinesToday = widget.medicines[todayKey] ?? [];
+
+  // 1. Check for medicines marked for removal and remove them from the list
+  final medicinesToRemove = medicinesToday.where((med) => med.status == "Remove").toList();
+
+  if (medicinesToRemove.isNotEmpty) {
+    // Remove medicines that have "Remove" status
+    medicinesToday.removeWhere((med) => med.status == "Remove");
+    
+    // 2. Update the medicines list (either in the backend or local state)
+    for (var med in medicinesToRemove) {
+      widget.onDelete(med);  // Ensure this properly updates the list in your widget or backend
+    }
+  }
+
+  // 3. Check if any medicine is "Not Reviewed"
+  final hasNotReviewed = medicinesToday.any((med) => _getStatusLabel(med) == 'Not Reviewed');
+
+  if (hasNotReviewed) {
+    // Show dialog or snackbar if there are unreviewed medicines
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Please review all medicines for $todayKey before proceeding.'),
+      ),
+    );
+    return; // Don't move to the next day if there are unreviewed medicines
+  }
+
+  // 4. Move to the next day and reset status
+  final nextDate = today.add(const Duration(days: 1));
+  final nextKey = DateFormat('yyyy-MM-dd').format(nextDate);
+
+  // 5. Pass today's list to the next day with reset status
+  if (!widget.medicines.containsKey(nextKey)) {
+    widget.medicines[nextKey] = medicinesToday.map((med) {
+      return MedicineEntry(
+        name: med.name,
+        addedOn: nextDate,
+        isNew: false,
+        isKept: false,
+        isMarkedForRemoval: false,
+        showKeepRemoveAlways: false,
+        markedRemovalTime: null,
+        lastKeptOrRemovedDate: null,
+        status: "Not Reviewed", // Reset status to "Not Reviewed"
+      );
+    }).toList();
+  }
+
+  setState(() {
+    _selectedDate = nextDate; // Move to the next date
+  });
+}
+
+  void _decreaseDate() {
+    setState(() {
+      _selectedDate = _selectedDate.subtract(Duration(days: 1));
+    });
   }
 
   @override
@@ -219,25 +304,17 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
 
     final filteredMedicines = todayMedicines.where((medicine) {
       if (medicine.isMarkedForRemoval &&
+          medicine.status == "Remove" &&
           medicine.markedRemovalTime != null &&
           now.isAfter(medicine.markedRemovalTime!)) {
+        // Remove item using widget.onDelete (ensure this updates the state or backend)
         widget.onDelete(medicine);
-        return false;
-      }
-      return true;
-    }).toList();
-    // Methods to increase and decrease the date
-    void _increaseDate() {
-      setState(() {
-        _selectedDate = _selectedDate.add(Duration(days: 1));
-      });
-    }
 
-    void _decreaseDate() {
-      setState(() {
-        _selectedDate = _selectedDate.subtract(Duration(days: 1));
-      });
-    }
+        // You might need to call setState() to rebuild the widget if the list is locally stored
+        return false; // Exclude from list if removal is confirmed
+      }
+      return true; // Keep the item in the list if it's not marked for removal
+    }).toList();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -249,149 +326,16 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
             style: const TextStyle(fontSize: 18, color: Colors.black),
           ),
           const SizedBox(height: 10),
-          if (filteredMedicines.isEmpty)
-            Expanded(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                        onPressed: _decreaseDate, icon: Icon(Icons.arrow_back)),
-                    ElevatedButton(
-                      onPressed: _showAddMedicineBottomSheet,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: widget.buttonColor,
-                        fixedSize:
-                            Size(widget.buttonWidth, widget.buttonHeight),
-                      ),
-                      child: Text(widget.addButtonText,
-                          style: widget.buttonTextStyle),
-                    ),
-                    IconButton(
-                        onPressed: _increaseDate,
-                        icon: Icon(Icons.arrow_forward)),
-                  ],
-                ),
-              ),
-            )
-          else
-            Expanded(
-              child: Stack(
-                children: [
-                  ListView.builder(
-                    padding: EdgeInsets.only(bottom: widget.buttonHeight + 19),
-                    itemCount: filteredMedicines.length,
-                    itemBuilder: (context, index) {
-                      final medicine = filteredMedicines[index];
-
-                      final bool isAddedToday =
-                          now.difference(medicine.addedOn).inDays == 0;
-
-                      final bool wasKeptToday =
-                          _wasActionToday(medicine.lastKeptOrRemovedDate);
-
-                      final showKeepLabel = medicine.isKept && wasKeptToday;
-                      final showRemoveLabel =
-                          medicine.isMarkedForRemoval && wasKeptToday;
-
-                      Color cardColor = widget.cardColor;
-
-                      return Slidable(
-                        key: ValueKey(
-                            medicine.name + medicine.addedOn.toString()),
-                        startActionPane: _canShowKeep(medicine)
-                            ? ActionPane(
-                                motion: const DrawerMotion(),
-                                extentRatio: 0.5,
-                                children: [
-                                  SlidableAction(
-                                    onPressed: (context) =>
-                                        _handleKeep(medicine),
-                                    backgroundColor: widget.keepButtonColor,
-                                    foregroundColor: Colors.white,
-                                    icon: Icons.check,
-                                    label: widget.keepLabel,
-                                    autoClose: true,
-                                  ),
-                                ],
-                              )
-                            : null,
-                        endActionPane: ActionPane(
-                          motion: const DrawerMotion(),
-                          extentRatio: 0.5,
-                          children: [
-                            SlidableAction(
-                              onPressed: (context) => handleRemove(medicine),
-                              backgroundColor: widget.deleteButtonColor,
-                              foregroundColor: Colors.white,
-                              icon: Icons.delete,
-                              label: widget.deleteLabel,
-                              autoClose: true,
-                            ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 1),
-                          child: Card(
-                            elevation: 7,
-                            shadowColor: Colors.blueGrey,
-                            color: cardColor,
-                            child: SizedBox(
-                              height: widget.cardHeight,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (showKeepLabel)
-                                    _buildLabelStrip("KEEP", Colors.green)
-                                  else if (medicine.isNew && isAddedToday)
-                                    _buildLabelStrip("NEW", Colors.blue)
-                                  else if (!isAddedToday &&
-                                      !showKeepLabel &&
-                                      !showRemoveLabel &&
-                                      !medicine.isKept &&
-                                      !medicine.isMarkedForRemoval &&
-                                      !medicine.isNew)
-                                    _buildHorizontalLabelStrip(
-                                        "NOT REVIEWED", Colors.yellow)
-                                  else
-                                    const SizedBox(width: 25),
-                                  Expanded(
-                                      child: Padding(
-                                    padding: const EdgeInsets.all(12.0),
-                                    child: ListTile(
-                                      contentPadding: const EdgeInsets.all(12),
-                                      title: Center(
-                                        child: Text(
-                                          medicine.name,
-                                          style: widget.titleTextStyle,
-                                        ),
-                                      ),
-                                    ),
-                                  )),
-                                  if (showRemoveLabel)
-                                    _buildLabelStrip("REMOVE",
-                                        const Color.fromARGB(255, 231, 78, 67))
-                                  else
-                                    const SizedBox(width: 40),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  Positioned(
-                    bottom: widget.buttonPadding.bottom - 19.6,
-                    left: widget.buttonPadding.left + 60,
-                    right: widget.buttonPadding.right,
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Row(children: [
+          filteredMedicines.isEmpty
+              ? Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
                         IconButton(
-                            icon: Icon(Icons.arrow_back),
-                            onPressed: _decreaseDate),
+                            onPressed: _decreaseDate,
+                            icon: Icon(Icons.arrow_back)),
                         ElevatedButton(
                           onPressed: _showAddMedicineBottomSheet,
                           style: ElevatedButton.styleFrom(
@@ -403,48 +347,215 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                               style: widget.buttonTextStyle),
                         ),
                         IconButton(
-                            icon: Icon(Icons.arrow_forward),
-                            onPressed: _increaseDate),
-                      ]),
+                            onPressed: _increaseDate,
+                            icon: Icon(Icons.arrow_forward)),
+                      ],
                     ),
                   ),
-                  // Positioned(
-                  //   bottom: widget.buttonPadding.bottom + 60,
-                  //   left: widget.buttonPadding.left,
-                  //   right: widget.buttonPadding.right,
-                  //   child: Row(
-                  //     mainAxisAlignment: MainAxisAlignment.center,
-                  //     children: [
-                  //       IconButton(
-                  //           icon: Icon(Icons.arrow_back),
-                  //           onPressed: _decreaseDate
-                  //           // () {
-                  //           //   setState(() {
-                  //           //     _selectedDate = _selectedDate
-                  //           //         .subtract(const Duration(days: 1));
-                  //           //   });
-                  //           // }
-                  //           ),
-                  //       // Text(
-                  //       //   DateFormat('dd-MM-yyyy').format(_selectedDate),
-                  //       //   style: TextStyle(fontSize: 16),
-                  //       // ),
-                  //       IconButton(
-                  //           icon: Icon(Icons.arrow_forward),
-                  //           onPressed: _increaseDate
-                  //           // () {
-                  //           //   setState(() {
-                  //           //     _selectedDate =
-                  //           //         _selectedDate.add(const Duration(days: 1));
-                  //           //   });
-                  //           // }
-                  //           ),
-                  //     ],
-                  //   ),
-                  // ),
-                ],
-              ),
-            ),
+                )
+              : Expanded(
+                  child: Stack(
+                    children: [
+                      ListView.builder(
+                        padding:
+                            EdgeInsets.only(bottom: widget.buttonHeight + 19),
+                        itemCount: filteredMedicines.length,
+                        itemBuilder: (context, index) {
+                          final medicine = filteredMedicines[index];
+
+                          final bool isAddedToday =
+                              now.difference(medicine.addedOn).inDays == 0;
+
+                          final bool wasKeptToday =
+                              _wasActionToday(medicine.lastKeptOrRemovedDate);
+
+                          final showKeepLabel = medicine.isKept && wasKeptToday;
+                          final showRemoveLabel =
+                              medicine.isMarkedForRemoval && wasKeptToday;
+
+                          Color cardColor = widget.cardColor;
+                          final bool isFirstRow = index == 0;
+                          return Slidable(
+                              key: ValueKey(
+                                  medicine.name + medicine.addedOn.toString()),
+                              startActionPane:
+                                  medicine.status == 'Not Reviewed' ||
+                                          medicine.status == "Keep" ||
+                                          medicine.status == "Remove" ||
+                                          _canShowKeep(medicine)
+                                      ? ActionPane(
+                                          motion: const DrawerMotion(),
+                                          extentRatio: 0.5,
+                                          children: [
+                                            SlidableAction(
+                                              onPressed: (context) =>
+                                                  _handleKeep(medicine),
+                                              backgroundColor:
+                                                  widget.keepButtonColor,
+                                              foregroundColor: Colors.white,
+                                              icon: Icons.check,
+                                              label: widget.keepLabel,
+                                              autoClose: true,
+                                            ),
+                                          ],
+                                        )
+                                      : null,
+                              endActionPane:
+                                  medicine.status == "Not Reviewed" ||
+                                          medicine.status == "New" ||
+                                          medicine.status == "Keep"
+                                      ? ActionPane(
+                                          motion: const DrawerMotion(),
+                                          extentRatio: 0.5,
+                                          children: [
+                                            SlidableAction(
+                                              onPressed: (context) =>
+                                                  handleRemove(medicine),
+                                              backgroundColor:
+                                                  widget.deleteButtonColor,
+                                              foregroundColor: Colors.white,
+                                              icon: Icons.delete,
+                                              label: widget.deleteLabel,
+                                              autoClose: true,
+                                            ),
+                                          ],
+                                        )
+                                      : null,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 1),
+                                child: Card(
+                                  elevation: 7,
+                                  shadowColor: Colors.blueGrey,
+                                  color: cardColor,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SizedBox(
+                                        height: widget.cardHeight,
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            // LEFT SIDE — Only for NEW
+                                            if (medicine.isNew && isAddedToday)
+                                              _buildLabelStrip(
+                                                  "NEW", Colors.blue)
+                                            else if (showKeepLabel)
+                                              _buildLabelStrip(
+                                                  "KEEP", Colors.green)
+                                            else
+                                              const SizedBox(width: 25),
+
+                                            // MAIN CONTENT
+                                            Expanded(
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(12.0),
+                                                child: ListTile(
+                                                  contentPadding:
+                                                      const EdgeInsets.all(12),
+                                                  title: Center(
+                                                    child: Text(
+                                                      medicine.name,
+                                                      style:
+                                                          widget.titleTextStyle,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+
+                                            // RIGHT SIDE — KEEP or REMOVE only
+
+                                            if (showRemoveLabel)
+                                              _buildLabelStrip(
+                                                  "REMOVE",
+                                                  const Color.fromARGB(
+                                                      255, 231, 78, 67))
+                                            else
+                                              const SizedBox(width: 25),
+                                          ],
+                                        ),
+                                      ),
+
+                                      // BOTTOM STRIP — Only for "Not Reviewed"
+                                      if (medicine.status == "Not Reviewed")
+                                        _buildHorizontalLabelStrip(
+                                            "NOT REVIEWED", Colors.yellow)
+                                      else
+                                        const SizedBox.shrink(),
+                                    ],
+                                  ),
+                                ),
+                              ));
+                        },
+                      ),
+                      Positioned(
+                        bottom: widget.buttonPadding.bottom - 17.6,
+                        left: widget.buttonPadding.left + 45,
+                        right: widget.buttonPadding.right,
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Row(children: [
+                            IconButton(
+                                icon: Icon(Icons.arrow_back),
+                                onPressed: _decreaseDate),
+                            ElevatedButton(
+                              onPressed: _showAddMedicineBottomSheet,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: widget.buttonColor,
+                                fixedSize: Size(
+                                    widget.buttonWidth, widget.buttonHeight),
+                              ),
+                              child: Text(widget.addButtonText,
+                                  style: widget.buttonTextStyle),
+                            ),
+                            IconButton(
+                                icon: Icon(Icons.arrow_forward),
+                                onPressed: _increaseDate),
+                          ]),
+                        ),
+                      ),
+                      // Positioned(
+                      //   bottom: widget.buttonPadding.bottom + 60,
+                      //   left: widget.buttonPadding.left,
+                      //   right: widget.buttonPadding.right,
+                      //   child: Row(
+                      //     mainAxisAlignment: MainAxisAlignment.center,
+                      //     children: [
+                      //       IconButton(
+                      //           icon: Icon(Icons.arrow_back),
+                      //           onPressed: _decreaseDate
+                      //           // () {
+                      //           //   setState(() {
+                      //           //     _selectedDate = _selectedDate
+                      //           //         .subtract(const Duration(days: 1));
+                      //           //   });
+                      //           // }
+                      //           ),
+                      //       // Text(
+                      //       //   DateFormat('dd-MM-yyyy').format(_selectedDate),
+                      //       //   style: TextStyle(fontSize: 16),
+                      //       // ),
+                      //       IconButton(
+                      //           icon: Icon(Icons.arrow_forward),
+                      //           onPressed: _increaseDate
+                      //           // () {
+                      //           //   setState(() {
+                      //           //     _selectedDate =
+                      //           //         _selectedDate.add(const Duration(days: 1));
+                      //           //   });
+                      //           // }
+                      //           ),
+                      //     ],
+                      //   ),
+                      // ),
+                    ],
+                  ),
+                ),
         ],
       ),
     );
