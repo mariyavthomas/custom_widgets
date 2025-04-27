@@ -74,7 +74,7 @@ class MedicineListWidget extends StatefulWidget {
     this.buttonTextStyle = const TextStyle(
       fontSize: 16,
     ),
-    this.buttonColor = Colors.black,
+    this.buttonColor = Colors.white,
     this.addButtonText = "Add Medicine",
   });
 
@@ -144,59 +144,78 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
   }
 
   void _showAddMedicineBottomSheet() {
-    String medicineName = '';
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (context) {
-        return Padding(
-          padding: MediaQuery.of(context).viewInsets,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text("Add New Medicine",
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                TextField(
-                  decoration: const InputDecoration(
-                      labelText: 'Medicine Name', border: OutlineInputBorder()),
-                  onChanged: (value) {
-                    medicineName = value;
-                  },
+  String medicineName = '';
+  final _formKey = GlobalKey<FormState>(); // Add a GlobalKey for FormState validation
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+    builder: (context) {
+      return Padding(
+        padding: MediaQuery.of(context).viewInsets,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Add New Medicine",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Form(
+                key: _formKey, // Attach the Form to the key
+                child: Column(
+                  children: [
+                    TextFormField(
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                      decoration: const InputDecoration(
+                          labelText: 'Medicine Name',
+                          border: OutlineInputBorder()),
+                      onChanged: (value) {
+                        medicineName = value;
+                      },
+                      validator: (value) {
+                        // Validate if the input is empty
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a medicine name';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (_formKey.currentState?.validate() ?? false) {
+                          // Only proceed if validation passes
+                          final newMedicine = MedicineEntry(
+                            name: medicineName.trim(),
+                            addedOn: DateTime.now(),
+                            status: "New",
+                            isNew: true,
+                          );
+                          Navigator.pop(context);
+                          final key =
+                              DateFormat('yyyy-MM-dd').format(_selectedDate);
+                          setState(() {
+                            widget.medicines.putIfAbsent(key, () => []);
+                            widget.medicines[key]!.add(newMedicine);
+                          });
+                        }
+                      },
+                      child: const Text("Add"),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                ElevatedButton(
-                  onPressed: () {
-                    if (medicineName.trim().isNotEmpty) {
-                      final newMedicine = MedicineEntry(
-                        name: medicineName.trim(),
-                        addedOn: DateTime.now(),
-                        status: "New",
-                        isNew: true,
-                      );
-                      Navigator.pop(context);
-                      final key =
-                          DateFormat('yyyy-MM-dd').format(_selectedDate);
-                      setState(() {
-                        widget.medicines.putIfAbsent(key, () => []);
-                        widget.medicines[key]!.add(newMedicine);
-                      });
-                    }
-                  },
-                  child: const Text("Add"),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
+
 
   Widget _buildHorizontalLabelStrip(String label, Color color) {
     return Container(
@@ -335,15 +354,25 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             ElevatedButton(
-                              onPressed: _showAddMedicineBottomSheet,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: widget.buttonColor,
-                                fixedSize: Size(
-                                    widget.buttonWidth, widget.buttonHeight),
+                                onPressed: _showAddMedicineBottomSheet,
+                                style: ElevatedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    side: BorderSide(
+                                        color: const Color.fromARGB(
+                                            255, 212, 185, 226),
+                                        width:
+                                            1), // Set your border color and width
+                                    borderRadius: BorderRadius.circular(
+                                        10), // Set border radius for rounded corners
+                                  ),
+                                  fixedSize: Size(
+                                      widget.buttonWidth, widget.buttonHeight),
+                                ),
+                                child: Text(
+                                  widget.addButtonText,
+                                  style: widget.buttonTextStyle,
+                                ),
                               ),
-                              child: Text(widget.addButtonText,
-                                  style: widget.buttonTextStyle),
-                            ),
                           ],
                         ),
                       ),
