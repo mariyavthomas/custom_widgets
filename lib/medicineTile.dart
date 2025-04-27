@@ -561,7 +561,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                               10), // Set border radius for rounded corners
                         ),
                         fixedSize:
-                            Size(widget.buttonWidth + 100, widget.buttonHeight),
+                            Size(widget.buttonWidth + 145, widget.buttonHeight),
                       ),
                       child: Text(
                         widget.addButtonText,
@@ -569,6 +569,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                             fontSize: 18, color: Colors.black),
                       ),
                     ),
+                    SizedBox(height: 15,),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -598,7 +599,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                 ) // ,),
                             ),
                         SizedBox(
-                          width: 55,
+                          width: 45,
                         ),
                         ElevatedButton(
                             style: ElevatedButton.styleFrom(
@@ -624,7 +625,8 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                 ) // Text color
                             ),
                       ],
-                    )
+                    ),
+                    SizedBox(height: 10,)
                   ],
                 ),
               ),
