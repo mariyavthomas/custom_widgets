@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -207,9 +208,9 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                             // Only proceed if validation passes
                             final newMedicine = MedicineEntry(
                               name: medicineName.trim(),
-                              addedOn: DateTime.now(),
+                              addedOn: _selectedDate,
                               status: "New",
-                              isNew: true,
+                              //isNew: true,
                             );
                             Navigator.pop(context);
                             final key =
@@ -267,69 +268,79 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
   }
 
   void _increaseDate() {
-    final today = _selectedDate;
-    final todayKey = DateFormat('yyyy-MM-dd').format(today);
-    final medicinesToday = widget.medicines[todayKey] ?? [];
+  final today = _selectedDate;
+  final todayKey = DateFormat('yyyy-MM-dd').format(today);
+  final medicinesToday = widget.medicines[todayKey] ?? [];
 
-    // 1. Check if any medicine is "Not Reviewed"
-    final hasNotReviewed =
-        medicinesToday.any((med) => _getStatusLabel(med) == 'Not Reviewed');
+  final hasNotReviewed =
+      medicinesToday.any((med) => _getStatusLabel(med) == 'Not Reviewed');
 
-    if (hasNotReviewed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.black87,
-          elevation: 6,
-          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          content: Text(
-              'Please review all medicines for $todayKey before proceeding.'),
-          duration: const Duration(seconds: 1),
+  if (hasNotReviewed) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.black87,
+        elevation: 6,
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-      );
-      return;
-    }
-
-    // 2. Move to the next day
-    final nextDate = today.add(const Duration(days: 1));
-    final nextKey = DateFormat('yyyy-MM-dd').format(nextDate);
-
-    // 3. Prepare new list for next day excluding "Remove" items
-    final nextDayMedicines = medicinesToday
-        .where((med) => med.status != "Remove")
-        .map((med) => MedicineEntry(
-              name: med.name,
-              addedOn: nextDate,
-              isNew: false,
-              isKept: false,
-              isMarkedForRemoval: false,
-              showKeepRemoveAlways: false,
-              markedRemovalTime: null,
-              lastKeptOrRemovedDate: null,
-              status: "Not Reviewed",
-            ))
-        .toList();
-
-    // 4. Store the new list for the next day (only if not already set)
-    if (!widget.medicines.containsKey(nextKey)) {
-      widget.medicines[nextKey] = nextDayMedicines;
-    }
-
-    // 5. Call delete for items marked as "Remove"
-    final toDelete =
-        medicinesToday.where((med) => med.status == "Remove").toList();
-    for (var med in toDelete) {
-      widget.onDelete(med);
-    }
-
-    // 6. Move the selected date forward
-    setState(() {
-      _selectedDate = nextDate;
-    });
+        content: Text('Please review all medicines for $todayKey before proceeding.'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+    return;
   }
+
+  final nextDate = today.add(const Duration(days: 1));
+  final nextKey = DateFormat('yyyy-MM-dd').format(nextDate);
+
+  final todayKeptList = medicinesToday
+      .where((med) => med.status != "Remove")
+      .toList();
+
+  final generatedNextDayList = todayKeptList.map((med) => MedicineEntry(
+        name: med.name,
+        addedOn: nextDate,
+        isNew: false,
+        isKept: false,
+        isMarkedForRemoval: false,
+        showKeepRemoveAlways: false,
+        markedRemovalTime: null,
+        lastKeptOrRemovedDate: null,
+        status: "Not Reviewed",
+      )).toList();
+
+  final existingNextDayList = widget.medicines[nextKey];
+
+  if (existingNextDayList == null) {
+    widget.medicines[nextKey] = generatedNextDayList;
+  } else {
+    final existingMap = {for (var med in existingNextDayList) med.name: med};
+    final todayKeptNames = todayKeptList.map((e) => e.name).toSet();
+
+    // ➔ Add missing items
+    for (var med in generatedNextDayList) {
+      if (!existingMap.containsKey(med.name)) {
+        existingNextDayList.add(med);
+      }
+    }
+
+    // ➔ Remove items that are no longer kept today
+    existingNextDayList.removeWhere((med) => !todayKeptNames.contains(med.name));
+  }
+
+  setState(() {
+    _selectedDate = nextDate;
+  });
+
+  print('Updated list for $nextKey:');
+  for (var med in widget.medicines[nextKey]!) {
+    print('Name: ${med.name}, Status: ${med.status}');
+  }
+}
+
+
 
   void _decreaseDate() {
     setState(() {
@@ -342,7 +353,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
     final now = DateTime.now();
     final selectedKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final todayMedicines = widget.medicines[selectedKey] ?? [];
-    print(todayMedicines);
+    //print(todayMedicines);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -463,8 +474,8 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               // LEFT SIDE — Only for NEW
-                                              if (medicine.isNew &&
-                                                  isAddedToday)
+                                              if (isAddedToday&& medicine.isNew 
+                                                  || medicine.status == "New")
                                                 _buildLabelStrip(
                                                     "NEW", Colors.blue)
                                               else if (showKeepLabel)
@@ -562,54 +573,56 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                  color:
-                                      const Color.fromARGB(255, 212, 185, 226),
-                                  width: 1), // Set your border color and width
-                              borderRadius: BorderRadius.circular(
-                                  10), // Set border radius for rounded corners
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(
+                                    color: const Color.fromARGB(
+                                        255, 212, 185, 226),
+                                    width:
+                                        1), // Set your border color and width
+                                borderRadius: BorderRadius.circular(
+                                    10), // Set border radius for rounded corners
+                              ),
+                              fixedSize: Size(
+                                widget.buttonWidth - 40,
+                                widget.buttonHeight,
+                              ),
+                              backgroundColor:
+                                  const Color.fromARGB(255, 117, 125, 213),
                             ),
-                            fixedSize: Size(
-                                widget.buttonWidth - 40, widget.buttonHeight,
-                                
-                                ),
-                                backgroundColor: const Color.fromARGB(255, 117, 125, 213), 
-                          ),
-                          onPressed: _decreaseDate,
-                          child: Text("Prev Day",style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  color: Colors.black) // Text color
-                                  ) // ,),
-                        ),
+                            onPressed: _decreaseDate,
+                            child: Text("Prev Day",
+                                style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    color: Colors.black) // Text color
+                                ) // ,),
+                            ),
                         SizedBox(
                           width: 55,
                         ),
                         ElevatedButton(
-                          
-                          style: ElevatedButton.styleFrom(
-                            
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                color: const Color.fromARGB(255, 212, 185, 226),
-                                width: 1,
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(
+                                  color:
+                                      const Color.fromARGB(255, 212, 185, 226),
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              borderRadius: BorderRadius.circular(10),
+
+                              fixedSize: Size(
+                                  widget.buttonWidth - 40, widget.buttonHeight),
+                              backgroundColor: const Color.fromARGB(255, 117,
+                                  125, 213), // Normal background color
                             ),
-                            
-                            fixedSize: Size(
-                                widget.buttonWidth - 40, widget.buttonHeight),
-                            backgroundColor: const Color.fromARGB(255, 117, 125, 213), // Normal background color
-                          ),
-                          onPressed: _increaseDate,
-                          child: Text("Next Day",
-                              style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  color: Colors.black) // Text color
-                                  ) // Text color
-                              ),
-                        
+                            onPressed: _increaseDate,
+                            child: Text("Next Day",
+                                style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    color: Colors.black) // Text color
+                                ) // Text color
+                            ),
                       ],
                     )
                   ],
