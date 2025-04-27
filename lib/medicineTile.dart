@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 class MedicineEntry {
@@ -136,86 +137,106 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
       child: Center(
         child: RotatedBox(
           quarterTurns: 3,
-          child: Text(label,
-              style: const TextStyle(color: Colors.black, fontSize: 12)),
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Colors.black,
+            ),
+          ),
         ),
       ),
     );
   }
 
   void _showAddMedicineBottomSheet() {
-  String medicineName = '';
-  final _formKey = GlobalKey<FormState>(); // Add a GlobalKey for FormState validation
+    String medicineName = '';
+    final _formKey =
+        GlobalKey<FormState>(); // Add a GlobalKey for FormState validation
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-    builder: (context) {
-      return Padding(
-        padding: MediaQuery.of(context).viewInsets,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("Add New Medicine",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              Form(
-                key: _formKey, // Attach the Form to the key
-                child: Column(
-                  children: [
-                    TextFormField(
-                      autovalidateMode: AutovalidateMode.onUserInteraction,
-                      decoration: const InputDecoration(
-                          labelText: 'Medicine Name',
-                          border: OutlineInputBorder()),
-                      onChanged: (value) {
-                        medicineName = value;
-                      },
-                      validator: (value) {
-                        // Validate if the input is empty
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a medicine name';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState?.validate() ?? false) {
-                          // Only proceed if validation passes
-                          final newMedicine = MedicineEntry(
-                            name: medicineName.trim(),
-                            addedOn: DateTime.now(),
-                            status: "New",
-                            isNew: true,
-                          );
-                          Navigator.pop(context);
-                          final key =
-                              DateFormat('yyyy-MM-dd').format(_selectedDate);
-                          setState(() {
-                            widget.medicines.putIfAbsent(key, () => []);
-                            widget.medicines[key]!.add(newMedicine);
-                          });
-                        }
-                      },
-                      child: const Text("Add"),
-                    ),
-                  ],
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (context) {
+        return Padding(
+          padding: MediaQuery.of(context).viewInsets,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "Add New Medicine",
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+                Form(
+                  key: _formKey, // Attach the Form to the key
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        decoration: InputDecoration(
+                            labelText: 'Medicine Name',
+                            labelStyle: GoogleFonts.poppins(
+                              fontSize: 15,
+                              color: Colors.black,
+                            ),
+                            border: OutlineInputBorder()),
+                        onChanged: (value) {
+                          medicineName = value;
+                        },
+                        validator: (value) {
+                          // Validate if the input is empty
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a medicine name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (_formKey.currentState?.validate() ?? false) {
+                            // Only proceed if validation passes
+                            final newMedicine = MedicineEntry(
+                              name: medicineName.trim(),
+                              addedOn: DateTime.now(),
+                              status: "New",
+                              isNew: true,
+                            );
+                            Navigator.pop(context);
+                            final key =
+                                DateFormat('yyyy-MM-dd').format(_selectedDate);
+                            setState(() {
+                              widget.medicines.putIfAbsent(key, () => []);
+                              widget.medicines[key]!.add(newMedicine);
+                            });
+                          }
+                        },
+                        child: Text(
+                          "Add",
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
-
+        );
+      },
+    );
+  }
 
   Widget _buildHorizontalLabelStrip(String label, Color color) {
     return Container(
@@ -335,48 +356,20 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
               children: [
                 Text(
                   "Medicine as on ${DateFormat('dd-MM-yyyy').format(_selectedDate)}",
-                  style: const TextStyle(fontSize: 18, color: Colors.black),
+                  style:
+                      //const TextStyle(fontSize: 18, color: Colors.black),
+                      GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
-                IconButton(
-                    icon: Icon(Icons.arrow_back), onPressed: _decreaseDate),
-                IconButton(
-                    icon: Icon(Icons.arrow_forward), onPressed: _increaseDate),
               ],
             ),
             const SizedBox(height: 10),
             todayMedicines.isEmpty
                 ? Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 50),
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            ElevatedButton(
-                                onPressed: _showAddMedicineBottomSheet,
-                                style: ElevatedButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    side: BorderSide(
-                                        color: const Color.fromARGB(
-                                            255, 212, 185, 226),
-                                        width:
-                                            1), // Set your border color and width
-                                    borderRadius: BorderRadius.circular(
-                                        10), // Set border radius for rounded corners
-                                  ),
-                                  fixedSize: Size(
-                                      widget.buttonWidth, widget.buttonHeight),
-                                ),
-                                child: Text(
-                                  widget.addButtonText,
-                                  style: widget.buttonTextStyle,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    child: Center(),
                   )
                 : Expanded(
                     child: Stack(
@@ -492,8 +485,13 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                                     title: Center(
                                                       child: Text(
                                                         medicine.name,
-                                                        style: widget
-                                                            .titleTextStyle,
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                          fontSize: 17,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Colors.black,
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
@@ -507,61 +505,117 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                                     "REMOVE",
                                                     const Color.fromARGB(
                                                         255, 231, 78, 67))
-                                              else if (medicine.status ==
-                                                  "Not Reviewed")
-                                                _buildLabelStrip("NOT REVIEWED",
-                                                    Colors.yellow)
+                                              // else if (medicine.status ==
+                                              //     "Not Reviewed")
+                                              //   _buildLabelStrip("NOT REVIEWED",
+                                              //       Colors.yellow)
                                               else
                                                 const SizedBox(width: 25),
                                             ],
                                           ),
                                         ),
 
-                                        // // BOTTOM STRIP — Only for "Not Reviewed"
-                                        // if (medicine.status == "Not Reviewed")
-                                        //   _buildHorizontalLabelStrip(
-                                        //       "NOT REVIEWED", Colors.yellow)
-                                        // else
-                                        //   const SizedBox.shrink(),
+                                        // BOTTOM STRIP — Only for "Not Reviewed"
+                                        if (medicine.status == "Not Reviewed")
+                                          _buildHorizontalLabelStrip(
+                                              "NOT REVIEWED", Colors.yellow)
+                                        else
+                                          const SizedBox.shrink(),
                                       ],
                                     ),
                                   ),
                                 ));
                           },
                         ),
-                        Positioned(
-                          bottom: widget.buttonPadding.bottom + 30,
-                          left: widget.buttonPadding.left + 80,
-                          right: widget.buttonPadding.right,
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: Row(children: [
-                              ElevatedButton(
-                                onPressed: _showAddMedicineBottomSheet,
-                                style: ElevatedButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    side: BorderSide(
-                                        color: const Color.fromARGB(
-                                            255, 212, 185, 226),
-                                        width:
-                                            1), // Set your border color and width
-                                    borderRadius: BorderRadius.circular(
-                                        10), // Set border radius for rounded corners
-                                  ),
-                                  fixedSize: Size(
-                                      widget.buttonWidth, widget.buttonHeight),
-                                ),
-                                child: Text(
-                                  widget.addButtonText,
-                                  style: widget.buttonTextStyle,
-                                ),
-                              ),
-                            ]),
-                          ),
-                        ),
                       ],
                     ),
                   ),
+            Positioned(
+              bottom: widget.buttonPadding.bottom,
+              left: widget.buttonPadding.left,
+              right: widget.buttonPadding.right,
+              top: widget.buttonPadding.top + 10,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Column(
+                  children: [
+                    ElevatedButton(
+                      onPressed: _showAddMedicineBottomSheet,
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          side: BorderSide(
+                              color: const Color.fromARGB(255, 212, 185, 226),
+                              width: 1), // Set your border color and width
+                          borderRadius: BorderRadius.circular(
+                              10), // Set border radius for rounded corners
+                        ),
+                        fixedSize:
+                            Size(widget.buttonWidth + 100, widget.buttonHeight),
+                      ),
+                      child: Text(
+                        widget.addButtonText,
+                        style: GoogleFonts.poppins(
+                            fontSize: 18, color: Colors.black),
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              side: BorderSide(
+                                  color:
+                                      const Color.fromARGB(255, 212, 185, 226),
+                                  width: 1), // Set your border color and width
+                              borderRadius: BorderRadius.circular(
+                                  10), // Set border radius for rounded corners
+                            ),
+                            fixedSize: Size(
+                                widget.buttonWidth - 40, widget.buttonHeight,
+                                
+                                ),
+                                backgroundColor: const Color.fromARGB(255, 117, 125, 213), 
+                          ),
+                          onPressed: _decreaseDate,
+                          child: Text("Prev Day",style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.black) // Text color
+                                  ) // ,),
+                        ),
+                        SizedBox(
+                          width: 55,
+                        ),
+                        ElevatedButton(
+                          
+                          style: ElevatedButton.styleFrom(
+                            
+                            shape: RoundedRectangleBorder(
+                              side: BorderSide(
+                                color: const Color.fromARGB(255, 212, 185, 226),
+                                width: 1,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            
+                            fixedSize: Size(
+                                widget.buttonWidth - 40, widget.buttonHeight),
+                            backgroundColor: const Color.fromARGB(255, 117, 125, 213), // Normal background color
+                          ),
+                          onPressed: _increaseDate,
+                          child: Text("Next Day",
+                              style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.black) // Text color
+                                  ) // Text color
+                              ),
+                        
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
