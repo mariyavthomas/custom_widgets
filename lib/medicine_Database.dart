@@ -1,66 +1,7 @@
-// medicine_db_helper.dart
+import 'package:flutterintern/medicineTile.dart'; // Adjust the path as needed
+import 'package:flutterintern/medicine_entry.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-
-class MedicineEntry {
-  int? id;
-  String name;
-  DateTime addedOn;
-  bool isKept;
-  bool isMarkedForRemoval;
-  bool isNew;
-  DateTime? markedRemovalTime;
-  bool showKeepRemoveAlways;
-  DateTime? lastKeptOrRemovedDate;
-  String? status;
-
-  MedicineEntry({
-    this.id,
-    required this.name,
-    required this.addedOn,
-    this.isKept = false,
-    this.isMarkedForRemoval = false,
-    this.isNew = true,
-    this.markedRemovalTime,
-    this.showKeepRemoveAlways = false,
-    this.lastKeptOrRemovedDate,
-    this.status = 'Not Reviewed',
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'date': addedOn.toIso8601String(),
-      'status': status,
-      'isKept': isKept ? 1 : 0,
-      'isMarkedForRemoval': isMarkedForRemoval ? 1 : 0,
-      'isNew': isNew ? 1 : 0,
-      'showKeepRemoveAlways': showKeepRemoveAlways ? 1 : 0,
-      'markedRemovalTime': markedRemovalTime?.toIso8601String(),
-      'lastKeptOrRemovedDate': lastKeptOrRemovedDate?.toIso8601String(),
-    };
-  }
-
-  static MedicineEntry fromMap(Map<String, dynamic> map) {
-    return MedicineEntry(
-      id: map['id'],
-      name: map['name'],
-      addedOn: DateTime.parse(map['date']),
-      status: map['status'],
-      isKept: map['isKept'] == 1,
-      isMarkedForRemoval: map['isMarkedForRemoval'] == 1,
-      isNew: map['isNew'] == 1,
-      showKeepRemoveAlways: map['showKeepRemoveAlways'] == 1,
-      markedRemovalTime: map['markedRemovalTime'] != null
-          ? DateTime.parse(map['markedRemovalTime'])
-          : null,
-      lastKeptOrRemovedDate: map['lastKeptOrRemovedDate'] != null
-          ? DateTime.parse(map['lastKeptOrRemovedDate'])
-          : null,
-    );
-  }
-}
 
 class MedicineDBHelper {
   static final MedicineDBHelper _instance = MedicineDBHelper._();
@@ -70,19 +11,22 @@ class MedicineDBHelper {
 
   factory MedicineDBHelper() => _instance;
 
+  // Get the database instance (create if not already done)
   Future<Database> get db async {
-    if (_db != null) return _db!;
-    _db = await initDB();
+    if (_db != null) return _db!; // If db already exists, return it
+    _db = await initDB(); // Initialize DB if it doesn't exist
     return _db!;
   }
 
+  // Initialize the database
   Future<Database> initDB() async {
     final path = join(await getDatabasesPath(), 'medicine.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,  // Increment the version to trigger onUpgrade
       onCreate: (db, version) async {
-        await db.execute('''
+        // Create the 'medicines' table when DB is first created
+        await db.execute(''' 
           CREATE TABLE medicines (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
@@ -97,30 +41,86 @@ class MedicineDBHelper {
           )
         ''');
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        // Ensure that the new column `addedOn` is added in case of upgrade
+        if (oldVersion < newVersion) {
+          // Add the `addedOn` column if it doesn't exist
+          await db.execute('ALTER TABLE medicines ADD COLUMN addedOn TEXT');
+          
+          // Backfill existing records with default value for the `addedOn` column
+          await db.execute('UPDATE medicines SET addedOn = ? WHERE addedOn IS NULL', ['2025-01-01']);
+        }
+      },
     );
   }
 
+  // Insert a medicine entry into the database
   Future<void> insertMedicine(MedicineEntry medicine) async {
     final dbClient = await db;
     await dbClient.insert(
       'medicines',
       medicine.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      conflictAlgorithm: ConflictAlgorithm.replace, // Replace any existing record with the same ID
     );
   }
 
-  Future<List<MedicineEntry>> getMedicinesByDate(DateTime date) async {
+  // Fetch all medicines and group them by date
+  Future<Map<String, List<MedicineEntry>>> getAllMedicinesGroupedByDate() async {
     final dbClient = await db;
-    final formattedDate =
-        date.toIso8601String().split('T')[0]; // match only by date
+    final result = await dbClient.query('medicines');
+
+    List<MedicineEntry> entries = result.map((e) => MedicineEntry.fromMap(e)).toList();
+
+    Map<String, List<MedicineEntry>> groupedEntries = {};
+
+    for (var entry in entries) {
+      String dateKey = entry.addedOn.toIso8601String().split('T')[0]; // Extract only the date part (YYYY-MM-DD)
+
+      // Add entry to the appropriate date group
+      if (!groupedEntries.containsKey(dateKey)) {
+        groupedEntries[dateKey] = [];
+      }
+      groupedEntries[dateKey]!.add(entry);
+    }
+
+    return groupedEntries;
+  }
+Future<void> printAllMedicines() async {
+  final dbClient = await db;
+  final result = await dbClient.query('medicines'); // Get all rows from the medicines table
+  
+  // Loop through the result and print each row
+  for (var row in result) {
+    print('ID: ${row['id']}');
+    print('Name: ${row['name']}');
+    print('Date: ${row['date']}');
+    print('Status: ${row['status']}');
+    print('isKept: ${row['isKept']}');
+    print('isMarkedForRemoval: ${row['isMarkedForRemoval']}');
+    print('isNew: ${row['isNew']}');
+    print('showKeepRemoveAlways: ${row['showKeepRemoveAlways']}');
+    print('markedRemovalTime: ${row['markedRemovalTime']}');
+    print('lastKeptOrRemovedDate: ${row['lastKeptOrRemovedDate']}');
+    print('---');
+  }
+}
+
+  // Get medicines for a specific date
+  Future<List<MedicineEntry>> getMedicinesForDate(String date) async {
+    final dbClient = await db;
+    // Get the current date in the format YYYY-MM-DD
+  String currentDate = DateTime.now().toIso8601String().split('T')[0];
     final result = await dbClient.query(
       'medicines',
-      where: 'date LIKE ?',
-      whereArgs: ['$formattedDate%'],
+      where: 'Date LIKE ?',
+      whereArgs: ['$date%'], // Matches all entries for that date
     );
+    print('Result: $result');
+
     return result.map((e) => MedicineEntry.fromMap(e)).toList();
   }
 
+  // Update a medicine entry in the database
   Future<void> updateMedicine(MedicineEntry medicine) async {
     final dbClient = await db;
     await dbClient.update(
@@ -131,25 +131,44 @@ class MedicineDBHelper {
     );
   }
 
-  Future<void> deleteMedicinesByDate(DateTime date) async {
+  // Delete medicines by a specific date
+  Future<void> deleteMedicineIfOneDayPassed(int id) async {
     final dbClient = await db;
-    final formattedDate = date.toIso8601String().split('T')[0];
-    await dbClient.delete(
+
+    // Fetch the medicine entry
+    final List<Map<String, dynamic>> result = await dbClient.query(
       'medicines',
-      where: 'date LIKE ?',
-      whereArgs: ['$formattedDate%'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (result.isNotEmpty) {
+      // Assuming you have a 'date' column stored as a string (example: '2025-04-27')
+      String dateString = result.first['date']; 
+
+      DateTime medicineDate = DateTime.parse(dateString);
+      DateTime currentDate = DateTime.now();
+
+      // Check if at least 1 day has passed
+      if (currentDate.isAfter(medicineDate.add(Duration(days: 1)))) {
+        await dbClient.delete('medicines', where: 'id = ?', whereArgs: [id]);
+        print('Medicine deleted because 1 day passed.');
+      } else {
+        print('1 day has not yet passed. Not deleting.');
+      }
+    } else {
+      print('Medicine not found.');
+    }
+  }
+
+  // Update the 'date' field for medicines matching the specific date
+  Future<void> updateDate(DateTime date) async {
+    final dbClient = await db;
+    await dbClient.update(
+      'medicines',
+      {'date': date.toIso8601String()}, // Update the date to the new date
+      where: 'date = ?',
+      whereArgs: [date.toIso8601String()], // Target the old date to update
     );
   }
- Future<void> updateDate(DateTime date) async {
-  final dbClient = await db; // Ensure db is awaited to get the Database instance
-
-  // Update the 'date' field in the database where the date matches
-  await dbClient.update(
-    'medicines',
-    {'date': date.toIso8601String()}, // Update the date field
-    where: 'date = ?',
-    whereArgs: [date.toIso8601String()],
-  );
-}
-
 }
