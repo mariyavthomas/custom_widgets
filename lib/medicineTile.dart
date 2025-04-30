@@ -66,12 +66,23 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
   DateTime _selectedDate = DateTime.now();
   late MedicineDBHelper _databaseHelper;
   late Future<List<Map<String, dynamic>>> _medicinesFuture;
+  Map<String, List<MedicineEntry>> medicines = {};
   @override
   void initState() {
     super.initState();
     _databaseHelper = MedicineDBHelper();
+    //_loadMedicines();
+    fetchAndDisplaySelectedDateData(_selectedDate);
     //_medicinesFuture = _databaseHelper.getAllMedicinesGroupedByDate() as Future<List<Map<String, dynamic>>>;
   }
+
+  // Future<void> _loadMedicines() async {
+  //   // Load medicines for the current date
+  //   final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  //   medicines[todayKey] =
+  //       await MedicineDBHelper().getMedicinesForDate(todayKey);
+  //   setState(() {}); // Notify UI to rebuild
+  // }
 
   void _handleKeep(MedicineEntry medicine) {
     setState(() {
@@ -84,7 +95,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
       medicine.status = "Keep";
     });
     widget.onKeep(medicine);
-
+    //_updateNextDayList(medicine, false);
     // Update the medicine in the database
     MedicineDBHelper().updateMedicine(medicine);
   }
@@ -100,7 +111,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
       medicine.lastKeptOrRemovedDate = DateTime.now();
       medicine.status = "Remove";
     });
-
+    //_updateNextDayList(medicine, true);
     // Update the medicine in the database
     MedicineDBHelper().updateMedicine(medicine);
   }
@@ -306,27 +317,33 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
       medicinesToday.where((med) => med.status != "Remove").toList();
 
   // Generate the next day's list based on today's kept medicines
-  final generatedNextDayList = todayKeptList
-      .map((med) => MedicineEntry(
-            name: med.name,
-            addedOn: nextDate,
-            isNew: false,
-            isKept: false,
-            isMarkedForRemoval: false,
-            showKeepRemoveAlways: false,
-            markedRemovalTime: null,
-            lastKeptOrRemovedDate: null,
-            status: "Not Reviewed",
-          ))
-      .toList();
+  final generatedNextDayList = todayKeptList.map((med) {
+    return MedicineEntry(
+      name: med.name,
+      addedOn: nextDate,
+      isNew: false,
+      isKept: false,
+      isMarkedForRemoval: false,
+      showKeepRemoveAlways: false,
+      markedRemovalTime: null,
+      lastKeptOrRemovedDate: null,
+      status: "Not Reviewed", // Ensure status is set to "Not Reviewed"
+       // Include quantity if applicable
+    );
+  }).toList();
 
   // Add new medicines to the next day's list without removing existing ones
   for (var med in generatedNextDayList) {
-    if (!widget.medicines[nextKey]!.any((existingMed) => existingMed.name == med.name)) {
+    if (!widget.medicines[nextKey]!
+        .any((existingMed) => existingMed.name == med.name)) {
       widget.medicines[nextKey]!.add(med);
     }
   }
 
+  // Fetch and display the next day's data
+   fetchAndDisplaySelectedDateData(nextDate);
+
+  // Update the selected date
   setState(() {
     _selectedDate = nextDate;
   });
@@ -334,6 +351,67 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
   // Save the updated date information in the database
   await MedicineDBHelper().updateDate(nextDate);
 }
+
+  void fetchAndDisplaySelectedDateData(DateTime selectedDate) async {
+    String formatted =
+        selectedDate.toIso8601String().split('T')[0]; // 'YYYY-MM-DD'
+
+    // Fetch all medicines for the selected date
+    List<MedicineEntry> entries =
+        await MedicineDBHelper().getMedicinesForDate(formatted);
+
+    // Filter out medicines that are marked for removal
+    List<MedicineEntry> filteredEntries =
+        entries.where((entry) => entry.status != "Remove").toList();
+
+    // Update the medicines map and notify the UI to rebuild
+    setState(() {
+      widget.medicines[formatted] = filteredEntries; // Update the medicines map
+    });
+
+    // Print the entries for debugging
+    for (var entry in filteredEntries) {
+      print('${entry.name} | ${entry.addedOn} | Status: ${entry.status}');
+    }
+  }
+// void _updateNextDayList(MedicineEntry medicine, bool isRemoving) async {
+//   // Get the next date
+//   DateTime nextDate = _selectedDate.add(Duration(days: 1));
+//   String nextKey = DateFormat('yyyy-MM-dd').format(nextDate);
+
+//   // Fetch the current next day's medicines
+//   List<MedicineEntry> nextDayMedicines = widget.medicines[nextKey] ?? [];
+
+//   if (isRemoving) {
+//     // Remove the medicine from the next day's list if it exists
+//     nextDayMedicines.removeWhere((med) => med.name == medicine.name);
+//   } else {
+//     // Add the medicine back to the next day's list if it was kept
+//     if (!nextDayMedicines.any((med) => med.name == medicine.name)) {
+//       nextDayMedicines.add(MedicineEntry(
+//         name: medicine.name,
+//         addedOn: nextDate,
+//         isNew: false,
+//         isKept: false,
+//         isMarkedForRemoval: false,
+//         showKeepRemoveAlways: false,
+//         markedRemovalTime: null,
+//         lastKeptOrRemovedDate: null,
+//         status: "Not Reviewed",
+//       ));
+//     }
+//   }
+
+//   // Update the next day's medicines in the state
+//   setState(() {
+//     widget.medicines[nextKey] = nextDayMedicines;
+//   });
+
+//   // Optionally, update the database with the new next day's list
+//   for (var med in nextDayMedicines) {
+//     await MedicineDBHelper().insertMedicine(med);
+//   }
+// }
 
   void _decreaseDate() {
     setState(() {

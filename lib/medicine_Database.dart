@@ -115,7 +115,7 @@ Future<void> printAllMedicines() async {
       where: 'Date LIKE ?',
       whereArgs: ['$date%'], // Matches all entries for that date
     );
-   // print('Result: $result');
+   print('Result: $result');
 
     return result.map((e) => MedicineEntry.fromMap(e)).toList();
   }
