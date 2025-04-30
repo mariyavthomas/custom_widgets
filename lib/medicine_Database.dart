@@ -20,7 +20,7 @@ class MedicineDBHelper {
 
   // Initialize the database
   Future<Database> initDB() async {
-    final path = join(await getDatabasesPath(), 'medicine.db');
+    final path = join(await getDatabasesPath(), 'medicineslist.db');
     return openDatabase(
       path,
       version: 2,  // Increment the version to trigger onUpgrade
@@ -45,10 +45,10 @@ class MedicineDBHelper {
         // Ensure that the new column `addedOn` is added in case of upgrade
         if (oldVersion < newVersion) {
           // Add the `addedOn` column if it doesn't exist
-          await db.execute('ALTER TABLE medicines ADD COLUMN addedOn TEXT');
+          // await db.execute('ALTER TABLE medicines ADD COLUMN addedOn TEXT');
           
-          // Backfill existing records with default value for the `addedOn` column
-          await db.execute('UPDATE medicines SET addedOn = ? WHERE addedOn IS NULL', ['2025-01-01']);
+          // // Backfill existing records with default value for the `addedOn` column
+          // await db.execute('UPDATE medicines SET addedOn = ? WHERE addedOn IS NULL', ['2025-01-01']);
         }
       },
     );
@@ -115,7 +115,7 @@ Future<void> printAllMedicines() async {
       where: 'Date LIKE ?',
       whereArgs: ['$date%'], // Matches all entries for that date
     );
-    print('Result: $result');
+   // print('Result: $result');
 
     return result.map((e) => MedicineEntry.fromMap(e)).toList();
   }

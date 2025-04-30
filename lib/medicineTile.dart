@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutterintern/medicine_Database.dart';
@@ -7,7 +5,6 @@ import 'package:flutterintern/medicine_entry.dart';
 
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-
 
 class MedicineListWidget extends StatefulWidget {
   final Map<String, List<MedicineEntry>> medicines;
@@ -67,489 +64,210 @@ class MedicineListWidget extends StatefulWidget {
 
 class _MedicineListWidgetState extends State<MedicineListWidget> {
   DateTime _selectedDate = DateTime.now();
-  String currentDate = DateTime.now().toString().split(' ')[0];
   late MedicineDBHelper _databaseHelper;
   late Future<List<Map<String, dynamic>>> _medicinesFuture;
-  List<MedicineEntry> medicines = [];
-
   @override
   void initState() {
     super.initState();
-    _initializeDatabaseHelper();
+    _databaseHelper = MedicineDBHelper();
+    //_medicinesFuture = _databaseHelper.getAllMedicinesGroupedByDate() as Future<List<Map<String, dynamic>>>;
   }
 
-  Future<void> _initializeDatabaseHelper() async {
-  // Initialize the database helper asynchronously if necessary
-  _databaseHelper = MedicineDBHelper(); // Corrected to use the factory constructor directly
-  _loadMedicinesForDate(_selectedDate.toString().split(' ')[0]);
-  _databaseHelper.printAllMedicines(); // Call the function to print all medicines
-}
-
-
-  Future<void> _loadMedicinesForDate(String date) async {
-  final medicineDBHelper = MedicineDBHelper();
-    List<MedicineEntry> fetchedMedicines = await medicineDBHelper.getMedicinesForDate(date);
-    //_databaseHelper.printAllMedicines(); 
+  void _handleKeep(MedicineEntry medicine) {
     setState(() {
-      medicines = fetchedMedicines;
-      currentDate = date;  // Update the current date
+      medicine.isKept = true;
+      medicine.isMarkedForRemoval = false;
+      medicine.isNew = false;
+      medicine.markedRemovalTime = null;
+      medicine.showKeepRemoveAlways = true;
+      medicine.lastKeptOrRemovedDate = DateTime.now();
+      medicine.status = "Keep";
     });
+    widget.onKeep(medicine);
+
+    // Update the medicine in the database
+    MedicineDBHelper().updateMedicine(medicine);
   }
-//   void _handleKeep(MedicineEntry medicine) {
-//     setState(() {
-//       medicine.isKept = true;
-//       medicine.isMarkedForRemoval = false;
-//       medicine.isNew = false;
-//       medicine.markedRemovalTime = null;
-//       medicine.showKeepRemoveAlways = true;
-//       medicine.lastKeptOrRemovedDate = DateTime.now();
-//       medicine.status = "Keep";
-//     });
-//     widget.onKeep(medicine);
-//   }
 
-//   void handleRemove(MedicineEntry medicine) {
-//     setState(() {
-//       medicine.isMarkedForRemoval = true;
-//       medicine.isKept = false;
-//       medicine.isNew = false;
-//       medicine.markedRemovalTime =
-//           DateTime.now().add(const Duration(hours: 24));
-//       medicine.showKeepRemoveAlways = true;
-//       medicine.lastKeptOrRemovedDate = DateTime.now();
-//       medicine.status = "Remove";
-//     });
-//   }
+  void handleRemove(MedicineEntry medicine) {
+    setState(() {
+      medicine.isMarkedForRemoval = true;
+      medicine.isKept = false;
+      medicine.isNew = false;
+      medicine.markedRemovalTime =
+          DateTime.now().add(const Duration(hours: 24));
+      medicine.showKeepRemoveAlways = true;
+      medicine.lastKeptOrRemovedDate = DateTime.now();
+      medicine.status = "Remove";
+    });
 
-//   bool _canShowKeep(MedicineEntry medicine) {
-//     final now = DateTime.now();
-//     final isOldEnough = now.difference(medicine.addedOn).inDays >= 1;
-//     return (isOldEnough || medicine.showKeepRemoveAlways);
-//   }
+    // Update the medicine in the database
+    MedicineDBHelper().updateMedicine(medicine);
+  }
 
-//   bool _wasActionToday(DateTime? date) {
-//     if (date == null) return false;
-//     final now = DateTime.now();
-//     return now.year == date.year &&
-//         now.month == date.month &&
-//         now.day == date.day;
-//   }
+  bool _canShowKeep(MedicineEntry medicine) {
+    final now = DateTime.now();
+    final isOldEnough = now.difference(medicine.addedOn).inDays >= 1;
+    return (isOldEnough || medicine.showKeepRemoveAlways);
+  }
 
-//   Widget _buildLabelStrip(String label, Color color) {
-//     return Container(
-//       width: 25,
-//       height: widget.cardHeight,
-//       decoration: BoxDecoration(
-//         color: color,
-//         borderRadius: const BorderRadius.only(
-//             topLeft: Radius.circular(10), bottomLeft: Radius.circular(10)),
-//       ),
-//       child: Center(
-//         child: RotatedBox(
-//           quarterTurns: 3,
-//           child: Text(
-//             label,
-//             style: GoogleFonts.poppins(
-//               fontSize: 12,
-//               color: Colors.black,
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
+  bool _wasActionToday(DateTime? date) {
+    if (date == null) return false;
+    final now = DateTime.now();
+    return now.year == date.year &&
+        now.month == date.month &&
+        now.day == date.day;
+  }
 
-//   void _showAddMedicineBottomSheet() {
-//     String medicineName = '';
-//     final _formKey =
-//         GlobalKey<FormState>(); // Add a GlobalKey for FormState validation
-
-//     showModalBottomSheet(
-//       context: context,
-//       isScrollControlled: true,
-//       shape: const RoundedRectangleBorder(
-//           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-//       builder: (context) {
-//         return Padding(
-//           padding: MediaQuery.of(context).viewInsets,
-//           child: Padding(
-//             padding: const EdgeInsets.all(16),
-//             child: Column(
-//               mainAxisSize: MainAxisSize.min,
-//               children: [
-//                 Text(
-//                   "Add New Medicine",
-//                   style: GoogleFonts.poppins(
-//                     fontSize: 18,
-//                     fontWeight: FontWeight.bold,
-//                     color: Colors.black,
-//                   ),
-//                 ),
-//                 const SizedBox(height: 10),
-//                 Form(
-//                   key: _formKey, // Attach the Form to the key
-//                   child: Column(
-//                     children: [
-//                       TextFormField(
-//                         autovalidateMode: AutovalidateMode.onUserInteraction,
-//                         decoration: InputDecoration(
-//                             labelText: 'Medicine Name',
-//                             labelStyle: GoogleFonts.poppins(
-//                               fontSize: 15,
-//                               color: Colors.black,
-//                             ),
-//                             border: OutlineInputBorder()),
-//                         onChanged: (value) {
-//                           medicineName = value;
-//                         },
-//                         validator: (value) {
-//                           // Validate if the input is empty
-//                           if (value == null || value.isEmpty) {
-//                             return 'Please enter a medicine name';
-//                           }
-//                           return null;
-//                         },
-//                       ),
-//                       const SizedBox(height: 12),
-//                       ElevatedButton(
-//                         onPressed: () {
-//                           if (_formKey.currentState?.validate() ?? false) {
-//                             // Only proceed if validation passes
-//                             final newMedicine = MedicineEntry(
-//                               name: medicineName.trim(),
-//                               addedOn: _selectedDate,
-//                               status: "New",
-//                               //isNew: true,
-//                             );
-//                             Navigator.pop(context);
-//                             final key =
-//                                 DateFormat('yyyy-MM-dd').format(_selectedDate);
-//                             setState(() {
-//                               widget.medicines.putIfAbsent(key, () => []);
-//                               widget.medicines[key]!.add(newMedicine);
-//                             });
-//                           }
-//                         },
-//                         child: Text(
-//                           "Add",
-//                           style: GoogleFonts.poppins(
-//                             fontSize: 13,
-//                           ),
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         );
-//       },
-//     );
-//   }
-
-//   Widget _buildHorizontalLabelStrip(String label, Color color) {
-//     return Container(
-//       width: double.infinity, // Fill the card
-//       padding: const EdgeInsets.symmetric(vertical: 6),
-//       decoration: BoxDecoration(
-//         color: color,
-//         borderRadius: const BorderRadius.only(
-//           bottomLeft: Radius.circular(10),
-//           bottomRight: Radius.circular(10),
-//         ),
-//       ),
-//       child: Text(
-//         label,
-//         style: const TextStyle(
-//           color: Colors.black,
-//           fontSize: 14,
-//           fontWeight: FontWeight.bold,
-//         ),
-//         textAlign: TextAlign.center,
-//       ),
-//     );
-//   }
-
-//   String _getStatusLabel(MedicineEntry med) {
-//     if (med.status == null || med.status!.isEmpty) return 'Not Reviewed';
-//     return med.status!;
-//   }
-
-//   void _increaseDate() {
-//   final today = _selectedDate;
-//   final todayKey = DateFormat('yyyy-MM-dd').format(today);
-//   final medicinesToday = widget.medicines[todayKey] ?? [];
-
-//   final hasNotReviewed =
-//       medicinesToday.any((med) => _getStatusLabel(med) == 'Not Reviewed');
-
-//   if (hasNotReviewed) {
-//     ScaffoldMessenger.of(context).showSnackBar(
-//       SnackBar(
-//         behavior: SnackBarBehavior.floating,
-//         backgroundColor: Colors.black87,
-//         elevation: 6,
-//         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-//         shape: RoundedRectangleBorder(
-//           borderRadius: BorderRadius.circular(12),
-//         ),
-//         content: Text('Please review all medicines for $todayKey before proceeding.'),
-//         duration: const Duration(seconds: 1),
-//       ),
-//     );
-//     return;
-//   }
-
-//   final nextDate = today.add(const Duration(days: 1));
-//   final nextKey = DateFormat('yyyy-MM-dd').format(nextDate);
-
-//   final todayKeptList = medicinesToday
-//       .where((med) => med.status != "Remove")
-//       .toList();
-
-//   final generatedNextDayList = todayKeptList.map((med) => MedicineEntry(
-//         name: med.name,
-//         addedOn: nextDate,
-//         isNew: false,
-//         isKept: false,
-//         isMarkedForRemoval: false,
-//         showKeepRemoveAlways: false,
-//         markedRemovalTime: null,
-//         lastKeptOrRemovedDate: null,
-//         status: "Not Reviewed",
-//       )).toList();
-
-//   final existingNextDayList = widget.medicines[nextKey];
-
-//   if (existingNextDayList == null) {
-//     widget.medicines[nextKey] = generatedNextDayList;
-//   } else {
-//     final existingMap = {for (var med in existingNextDayList) med.name: med};
-//     final todayKeptNames = todayKeptList.map((e) => e.name).toSet();
-
-//     // ➔ Add missing items
-//     for (var med in generatedNextDayList) {
-//       if (!existingMap.containsKey(med.name)) {
-//         existingNextDayList.add(med);
-//       }
-//     }
-
-//     // ➔ Remove items that are no longer kept today
-//     existingNextDayList.removeWhere((med) => !todayKeptNames.contains(med.name));
-//   }
-
-//   setState(() {
-//     _selectedDate = nextDate;
-//   });
-
-//   print('Updated list for $nextKey:');
-//   for (var med in widget.medicines[nextKey]!) {
-//     print('Name: ${med.name}, Status: ${med.status}');
-//   }
-// }
-
-
-
-//   void _decreaseDate() {
-//     setState(() {
-//       _selectedDate = _selectedDate.subtract(Duration(days: 1));
-//     });
-//   }
-void _handleKeep(MedicineEntry medicine) {
-  setState(() {
-    medicine.isKept = true;
-    medicine.isMarkedForRemoval = false;
-    medicine.isNew = false;
-    medicine.markedRemovalTime = null;
-    medicine.showKeepRemoveAlways = true;
-    medicine.lastKeptOrRemovedDate = DateTime.now();
-    medicine.status = "Keep";
-  });
-  widget.onKeep(medicine);
-
-  // Update the medicine in the database
-  MedicineDBHelper().updateMedicine(medicine);
-}
-
-void handleRemove(MedicineEntry medicine) {
-  setState(() {
-    medicine.isMarkedForRemoval = true;
-    medicine.isKept = false;
-    medicine.isNew = false;
-    medicine.markedRemovalTime =
-        DateTime.now().add(const Duration(hours: 24));
-    medicine.showKeepRemoveAlways = true;
-    medicine.lastKeptOrRemovedDate = DateTime.now();
-    medicine.status = "Remove";
-  });
-
-  // Update the medicine in the database
-  MedicineDBHelper().updateMedicine(medicine);
-}
-
-bool _canShowKeep(MedicineEntry medicine) {
-  final now = DateTime.now();
-  final isOldEnough = now.difference(medicine.addedOn).inDays >= 1;
-  return (isOldEnough || medicine.showKeepRemoveAlways);
-}
-
-bool _wasActionToday(DateTime? date) {
-  if (date == null) return false;
-  final now = DateTime.now();
-  return now.year == date.year &&
-      now.month == date.month &&
-      now.day == date.day;
-}
-
-Widget _buildLabelStrip(String label, Color color) {
-  return Container(
-    width: 25,
-    height: widget.cardHeight,
-    decoration: BoxDecoration(
-      color: color,
-      borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(10), bottomLeft: Radius.circular(10)),
-    ),
-    child: Center(
-      child: RotatedBox(
-        quarterTurns: 3,
-        child: Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: Colors.black,
+  Widget _buildLabelStrip(String label, Color color) {
+    return Container(
+      width: 25,
+      height: widget.cardHeight,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(10), bottomLeft: Radius.circular(10)),
+      ),
+      child: Center(
+        child: RotatedBox(
+          quarterTurns: 3,
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Colors.black,
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-void _showAddMedicineBottomSheet() {
-  String medicineName = '';
-  final _formKey =
-      GlobalKey<FormState>(); // Add a GlobalKey for FormState validation
+  void _showAddMedicineBottomSheet() {
+    String medicineName = '';
+    final _formKey =
+        GlobalKey<FormState>(); // Add a GlobalKey for FormState validation
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-    builder: (context) {
-      return Padding(
-        padding: MediaQuery.of(context).viewInsets,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "Add New Medicine",
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (context) {
+        return Padding(
+          padding: MediaQuery.of(context).viewInsets,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "Add New Medicine",
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Form(
-                key: _formKey, // Attach the Form to the key
-                child: Column(
-                  children: [
-                    TextFormField(
-                      autovalidateMode: AutovalidateMode.onUserInteraction,
-                      decoration: InputDecoration(
-                          labelText: 'Medicine Name',
-                          labelStyle: GoogleFonts.poppins(
-                            fontSize: 15,
-                            color: Colors.black,
+                const SizedBox(height: 10),
+                Form(
+                  key: _formKey, // Attach the Form to the key
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        decoration: InputDecoration(
+                            labelText: 'Medicine Name',
+                            labelStyle: GoogleFonts.poppins(
+                              fontSize: 15,
+                              color: Colors.black,
+                            ),
+                            border: OutlineInputBorder()),
+                        onChanged: (value) {
+                          medicineName = value;
+                        },
+                        validator: (value) {
+                          // Validate if the input is empty
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a medicine name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (_formKey.currentState?.validate() ?? false) {
+                            // Only proceed if validation passes
+                            final newMedicine = MedicineEntry(
+                              name: medicineName.trim(),
+                              addedOn: _selectedDate,
+                              status: "New",
+                              //isNew: true,
+                            );
+
+                            // Insert the new medicine into the database
+                            await MedicineDBHelper()
+                                .insertMedicine(newMedicine);
+
+                            Navigator.pop(context);
+
+                            // Update the state and UI
+                            final key =
+                                DateFormat('yyyy-MM-dd').format(_selectedDate);
+                            setState(() {
+                              widget.medicines.putIfAbsent(key, () => []);
+                              widget.medicines[key]!.add(newMedicine);
+                            });
+                          }
+                        },
+                        child: Text(
+                          "Add",
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
                           ),
-                          border: OutlineInputBorder()),
-                      onChanged: (value) {
-                        medicineName = value;
-                      },
-                      validator: (value) {
-                        // Validate if the input is empty
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a medicine name';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (_formKey.currentState?.validate() ?? false) {
-                          // Only proceed if validation passes
-                          final newMedicine = MedicineEntry(
-                            name: medicineName.trim(),
-                            addedOn: _selectedDate,
-                            status: "New",
-                            //isNew: true,
-                          );
-
-                          // Insert the new medicine into the database
-                          await MedicineDBHelper().insertMedicine(newMedicine);
-
-                          Navigator.pop(context);
-
-                          // Update the state and UI
-                          final key =
-                              DateFormat('yyyy-MM-dd').format(_selectedDate);
-                          setState(() {
-                            widget.medicines.putIfAbsent(key, () => []);
-                            widget.medicines[key]!.add(newMedicine);
-                          });
-                        }
-                      },
-                      child: Text(
-                        "Add",
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHorizontalLabelStrip(String label, Color color) {
+    return Container(
+      width: double.infinity, // Fill the card
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(10),
+          bottomRight: Radius.circular(10),
         ),
-      );
-    },
-  );
-}
-
-Widget _buildHorizontalLabelStrip(String label, Color color) {
-  return Container(
-    width: double.infinity, // Fill the card
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    decoration: BoxDecoration(
-      color: color,
-      borderRadius: const BorderRadius.only(
-        bottomLeft: Radius.circular(10),
-        bottomRight: Radius.circular(10),
       ),
-    ),
-    child: Text(
-      label,
-      style: const TextStyle(
-        color: Colors.black,
-        fontSize: 14,
-        fontWeight: FontWeight.bold,
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+        textAlign: TextAlign.center,
       ),
-      textAlign: TextAlign.center,
-    ),
-  );
-}
+    );
+  }
 
-String _getStatusLabel(MedicineEntry med) {
-  if (med.status == null || med.status!.isEmpty) return 'Not Reviewed';
-  return med.status!;
-}
+  String _getStatusLabel(MedicineEntry med) {
+    if (med.status == null || med.status!.isEmpty) return 'Not Reviewed';
+    return med.status!;
+  }
 
-void _increaseDate() async {
+  void _increaseDate() async {
   final today = _selectedDate;
   final todayKey = DateFormat('yyyy-MM-dd').format(today);
   final medicinesToday = widget.medicines[todayKey] ?? [];
@@ -567,7 +285,8 @@ void _increaseDate() async {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        content: Text('Please review all medicines for $todayKey before proceeding.'),
+        content: Text(
+            'Please review all medicines for $todayKey before proceeding.'),
         duration: const Duration(seconds: 1),
       ),
     );
@@ -577,60 +296,50 @@ void _increaseDate() async {
   final nextDate = today.add(const Duration(days: 1));
   final nextKey = DateFormat('yyyy-MM-dd').format(nextDate);
 
-  final todayKeptList = medicinesToday
-      .where((med) => med.status != "Remove")
+  // Ensure that you are not overwriting existing data
+  if (!widget.medicines.containsKey(nextKey)) {
+    widget.medicines[nextKey] = [];
+  }
+
+  // Retrieve today's kept medicines
+  final todayKeptList =
+      medicinesToday.where((med) => med.status != "Remove").toList();
+
+  // Generate the next day's list based on today's kept medicines
+  final generatedNextDayList = todayKeptList
+      .map((med) => MedicineEntry(
+            name: med.name,
+            addedOn: nextDate,
+            isNew: false,
+            isKept: false,
+            isMarkedForRemoval: false,
+            showKeepRemoveAlways: false,
+            markedRemovalTime: null,
+            lastKeptOrRemovedDate: null,
+            status: "Not Reviewed",
+          ))
       .toList();
 
-  final generatedNextDayList = todayKeptList.map((med) => MedicineEntry(
-        name: med.name,
-        addedOn: nextDate,
-        isNew: false,
-        isKept: false,
-        isMarkedForRemoval: false,
-        showKeepRemoveAlways: false,
-        markedRemovalTime: null,
-        lastKeptOrRemovedDate: null,
-        status: "Not Reviewed",
-      )).toList();
-
-  final existingNextDayList = widget.medicines[nextKey];
-
-  if (existingNextDayList == null) {
-    widget.medicines[nextKey] = generatedNextDayList;
-  } else {
-    final existingMap = {for (var med in existingNextDayList) med.name: med};
-    final todayKeptNames = todayKeptList.map((e) => e.name).toSet();
-
-    // ➔ Add missing items
-    for (var med in generatedNextDayList) {
-      if (!existingMap.containsKey(med.name)) {
-        existingNextDayList.add(med);
-      }
+  // Add new medicines to the next day's list without removing existing ones
+  for (var med in generatedNextDayList) {
+    if (!widget.medicines[nextKey]!.any((existingMed) => existingMed.name == med.name)) {
+      widget.medicines[nextKey]!.add(med);
     }
-
-    // ➔ Remove items that are no longer kept today
-    existingNextDayList.removeWhere((med) => !todayKeptNames.contains(med.name));
   }
 
   setState(() {
     _selectedDate = nextDate;
   });
 
-  print('Updated list for $nextKey:');
-  for (var med in widget.medicines[nextKey]!) {
-    print('Name: ${med.name}, Status: ${med.status}');
-  }
-
   // Save the updated date information in the database
   await MedicineDBHelper().updateDate(nextDate);
 }
 
-void _decreaseDate() {
-  setState(() {
-    _selectedDate = _selectedDate.subtract(Duration(days: 1));
-  });
-}
-
+  void _decreaseDate() {
+    setState(() {
+      _selectedDate = _selectedDate.subtract(Duration(days: 1));
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -758,8 +467,9 @@ void _decreaseDate() {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               // LEFT SIDE — Only for NEW
-                                              if (isAddedToday&& medicine.isNew 
-                                                  || medicine.status == "New")
+                                              if (isAddedToday &&
+                                                      medicine.isNew ||
+                                                  medicine.status == "New")
                                                 _buildLabelStrip(
                                                     "NEW", Colors.blue)
                                               else if (showKeepLabel)
@@ -853,7 +563,9 @@ void _decreaseDate() {
                             fontSize: 18, color: Colors.black),
                       ),
                     ),
-                    SizedBox(height: 15,),
+                    SizedBox(
+                      height: 15,
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -875,11 +587,7 @@ void _decreaseDate() {
                               backgroundColor:
                                   const Color.fromARGB(255, 117, 125, 213),
                             ),
-                            onPressed:(){
-                              _decreaseDate();
-                              _loadMedicinesForDate(DateFormat('yyyy-MM-dd').format(_selectedDate));
-                            },
-
+                            onPressed: _decreaseDate,
                             child: Text("Prev Day",
                                 style: GoogleFonts.poppins(
                                     fontSize: 16,
@@ -905,10 +613,7 @@ void _decreaseDate() {
                               backgroundColor: const Color.fromARGB(255, 117,
                                   125, 213), // Normal background color
                             ),
-                            onPressed: (){
-                              _increaseDate();
-                              _loadMedicinesForDate(DateFormat('yyyy-MM-dd').format(_selectedDate));
-                            },
+                            onPressed: _increaseDate,
                             child: Text("Next Day",
                                 style: GoogleFonts.poppins(
                                     fontSize: 16,
@@ -917,7 +622,9 @@ void _decreaseDate() {
                             ),
                       ],
                     ),
-                    SizedBox(height: 10,)
+                    SizedBox(
+                      height: 10,
+                    )
                   ],
                 ),
               ),
