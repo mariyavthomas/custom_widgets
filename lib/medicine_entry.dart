@@ -9,6 +9,7 @@ class MedicineEntry {
   bool showKeepRemoveAlways;
   DateTime? lastKeptOrRemovedDate;
   String? status;
+  String? dosage; // Added dateKey property
 
   MedicineEntry({
     this.id,
@@ -21,6 +22,7 @@ class MedicineEntry {
     this.showKeepRemoveAlways = false,
     this.lastKeptOrRemovedDate,
     this.status = 'Not Reviewed',
+    this.dosage,
   });
 
   Map<String, dynamic> toMap() {
@@ -35,7 +37,8 @@ class MedicineEntry {
       'showKeepRemoveAlways': showKeepRemoveAlways ? 1 : 0,
       'markedRemovalTime': markedRemovalTime?.toIso8601String(),
       'lastKeptOrRemovedDate': lastKeptOrRemovedDate?.toIso8601String(),
-    };
+    
+      'dosage': dosage,};
   }
 
   static MedicineEntry fromMap(Map<String, dynamic> map) {
@@ -54,6 +57,7 @@ class MedicineEntry {
       lastKeptOrRemovedDate: map['lastKeptOrRemovedDate'] != null
           ? DateTime.parse(map['lastKeptOrRemovedDate'])
           : null,
+      dosage: map['dosage'],
     );
   }
 }

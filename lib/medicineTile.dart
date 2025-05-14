@@ -5,6 +5,7 @@ import 'package:flutterintern/medicine_entry.dart';
 
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:omni_datetime_picker/omni_datetime_picker.dart';
 
 class MedicineListWidget extends StatefulWidget {
   final Map<String, List<MedicineEntry>> medicines;
@@ -198,27 +199,33 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                       ElevatedButton(
                         onPressed: () async {
                           if (_formKey.currentState?.validate() ?? false) {
-                            // Only proceed if validation passes
-                            final newMedicine = MedicineEntry(
-                              name: medicineName.trim(),
-                              addedOn: _selectedDate,
-                              status: "New",
-                              //isNew: true,
-                            );
+                            // // Only proceed if validation passes
+                            // final newMedicine = MedicineEntry(
+                            //   name: medicineName.trim(),
+                            //   addedOn: _selectedDate,
+                            //   status: "New",
+                            //   //isNew: true,
+                            // );
 
-                            // Insert the new medicine into the database
-                            await MedicineDBHelper()
-                                .insertMedicine(newMedicine);
+                            // // Insert the new medicine into the database
+                            // await MedicineDBHelper()
+                            //     .insertMedicine(newMedicine);
 
                             Navigator.pop(context);
+                            await Future.delayed(const Duration(
+                                milliseconds: 300)); // Optional delay
+
+                            // Open dosage bottom sheet and pass medicine name
+                            _showAddDosageBottomSheet(
+                                medicineName.trim(), _selectedDate);
 
                             // Update the state and UI
-                            final key =
-                                DateFormat('yyyy-MM-dd').format(_selectedDate);
-                            setState(() {
-                              widget.medicines.putIfAbsent(key, () => []);
-                              widget.medicines[key]!.add(newMedicine);
-                            });
+                            // final key =
+                            //     DateFormat('yyyy-MM-dd').format(_selectedDate);
+                            // setState(() {
+                            //   widget.medicines.putIfAbsent(key, () => []);
+                            //   widget.medicines[key]!.add(newMedicine);
+                            // });
                           }
                         },
                         child: Text(
@@ -235,6 +242,334 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
             ),
           ),
         );
+      },
+    );
+  }
+
+ 
+  void _showAddDosageBottomSheet(String medicineName, DateTime selectedDate) {
+    List<int> dosageValues = []; // holds 0 or 1 for each slot
+    List<TimeOfDay?> dosageTimes = []; // time for 1, null for 0
+    List<int> undoValues = [];
+    List<TimeOfDay?> undoTimes = [];
+
+    final fixedTimes = [
+      const TimeOfDay(hour: 6, minute: 0), // 6 AM
+      const TimeOfDay(hour: 23, minute: 0), // 11 AM
+      const TimeOfDay(hour: 12, minute: 0), // 12 PM
+      const TimeOfDay(hour: 19, minute: 0), // 7 PM
+      const TimeOfDay(hour: 14, minute: 0), // 2 PM
+      const TimeOfDay(hour: 16, minute: 0), // 4 PM
+    ];
+    int timeIndex = 0; // points to the next time to assign for a '1'
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setModalState) {
+          return Padding(
+            padding: MediaQuery.of(context).viewInsets,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                   Text("Add Dosage ",
+                      style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    color: Colors.black)),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: dosageValues.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final value = entry.value;
+                      final time = dosageTimes[index];
+
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            height: 20,
+                            child: value == 1 && time != null
+                                ? GestureDetector(
+                                    onTap: () async {
+                                      final pickedDateTime =
+                                          await showOmniDateTimePicker(
+                                        context: context,
+                                        type: OmniDateTimePickerType
+                                            .time, // 🕒 Only time picker
+                                        initialDate: DateTime(
+                                          DateTime.now().year,
+                                          DateTime.now().month,
+                                          DateTime.now().day,
+                                          time.hour,
+                                          time.minute,
+                                        ),
+                                      );
+
+                                      if (pickedDateTime != null) {
+                                        final pickedTime =
+                                            TimeOfDay.fromDateTime(
+                                                pickedDateTime);
+                                        setModalState(() {
+                                          dosageTimes[index] = pickedTime;
+                                        });
+                                      }
+                                    },
+                                    child: Text(
+                                      time.format(context),
+                                       style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.black)
+                                    ),
+                                  )
+                                : const SizedBox(),
+                          ),
+                          Text("$value",   style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    color: Colors.black)),
+                          const SizedBox(height: 4),
+                          if (value == 1 && time != null)
+                            Container(
+                              width: 35,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_drop_up),
+                                    padding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () {
+                                      setModalState(() {
+                                        final dt = DateTime(
+                                          2020,
+                                          1,
+                                          1,
+                                          time.hour,
+                                          time.minute,
+                                        ).add(const Duration(minutes: 30));
+                                        dosageTimes[index] = TimeOfDay(
+                                            hour: dt.hour, minute: dt.minute);
+                                      });
+                                    },
+                                  ),
+                                  const Divider(
+                                      thickness: 1,
+                                      height: 1,
+                                      color: Colors.grey),
+                                  IconButton(
+                                    icon: const Icon(Icons.arrow_drop_down),
+                                    padding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () {
+                                      setModalState(() {
+                                        final dt = DateTime(
+                                          2020,
+                                          1,
+                                          1,
+                                          time.hour,
+                                          time.minute,
+                                        ).subtract(const Duration(minutes: 30));
+                                        dosageTimes[index] = TimeOfDay(
+                                            hour: dt.hour, minute: dt.minute);
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            const SizedBox(height: 80),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Undo & Delete Buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          if (undoValues.isNotEmpty) {
+                            setModalState(() {
+                              final restoredValue = undoValues.removeLast();
+                              dosageValues.add(restoredValue);
+                              final restoredTime = undoTimes.removeLast();
+                              dosageTimes.add(restoredTime);
+                              if (restoredTime != null) timeIndex++;
+                            });
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          side: BorderSide(
+                              color: const Color.fromARGB(255, 212, 185, 226),
+                              width: 1), // Set your border color and width
+                          borderRadius: BorderRadius.circular(
+                              10), // Set border radius for rounded corners
+                        ),
+                        fixedSize:
+                            Size(widget.buttonWidth -50, widget.buttonHeight),
+                      ),
+                        child: const Icon(Icons.undo),
+                      ),
+                      SizedBox(width: 60,),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (dosageValues.isNotEmpty) {
+                            setModalState(() {
+                              undoValues.add(dosageValues.removeLast());
+                              final removedTime = dosageTimes.removeLast();
+                              undoTimes.add(removedTime);
+                              if (removedTime != null) timeIndex--;
+                            });
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          side: BorderSide(
+                              color: const Color.fromARGB(255, 212, 185, 226),
+                              width: 1), // Set your border color and width
+                          borderRadius: BorderRadius.circular(
+                              10), // Set border radius for rounded corners
+                        ),
+                        fixedSize:
+                            Size(widget.buttonWidth -50, widget.buttonHeight),
+                      ),
+                        child:  Text("Delete",
+                          style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    color: Colors.black)
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // 1 and 0 Buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          if (dosageValues.length >= 6) return;
+                          setModalState(() {
+                            dosageValues.add(1);
+                            if (timeIndex < fixedTimes.length) {
+                              dosageTimes.add(fixedTimes[timeIndex]);
+                              timeIndex++;
+                            } else {
+                              dosageTimes.add(null); // fallback if overflow
+                            }
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          side: BorderSide(
+                              color: const Color.fromARGB(255, 212, 185, 226),
+                              width: 1), // Set your border color and width
+                          borderRadius: BorderRadius.circular(
+                              10), // Set border radius for rounded corners
+                        ),
+                        fixedSize:
+                            Size(widget.buttonWidth -30, widget.buttonHeight),
+                      ),
+                        child:  Text("1",
+                          style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    color: Colors.black)
+                        ),
+                      ),
+                      SizedBox(
+                        width: 25,
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (dosageValues.length >= 6) return;
+                          setModalState(() {
+                            dosageValues.add(0);
+                            dosageTimes.add(null);
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          side: BorderSide(
+                              color: const Color.fromARGB(255, 212, 185, 226),
+                              width: 1), // Set your border color and width
+                          borderRadius: BorderRadius.circular(
+                              10), // Set border radius for rounded corners
+                        ),
+                        fixedSize:
+                            Size(widget.buttonWidth -30, widget.buttonHeight),
+                      ),
+                        child:  Text("0",
+                          style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    color: Colors.black)),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Final OK Button
+                  ElevatedButton(
+
+                    onPressed: () async {
+                      String dosage = dosageValues.join("-");
+
+                      final newMedicine = MedicineEntry(
+                        name: medicineName,
+                        addedOn: selectedDate,
+                        status: "New",
+                        dosage: dosage,
+                      );
+
+                      await MedicineDBHelper().insertMedicine(newMedicine);
+
+                      final key = DateFormat('yyyy-MM-dd').format(selectedDate);
+                      setState(() {
+                        widget.medicines.putIfAbsent(key, () => []);
+                        widget.medicines[key]!.add(newMedicine);
+                      });
+
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 117, 125, 213),
+                        shape: RoundedRectangleBorder(
+                          
+                          side: BorderSide(
+                              color: const Color.fromARGB(255, 212, 185, 226),
+                              width: 1), // Set your border color and width
+                          borderRadius: BorderRadius.circular(
+                              10), // Set border radius for rounded corners
+                        ),
+                        fixedSize:
+                            Size(widget.buttonWidth + 145, widget.buttonHeight),
+                      ),
+                    child:  Text("OK",
+                      style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    color: Colors.black)
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
       },
     );
   }
@@ -268,72 +603,73 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
   }
 
   void _increaseDate() async {
-  final today = _selectedDate;
-  final todayKey = DateFormat('yyyy-MM-dd').format(today);
-  final medicinesToday = widget.medicines[todayKey] ?? [];
+    final today = _selectedDate;
+    final todayKey = DateFormat('yyyy-MM-dd').format(today);
+    final medicinesToday = widget.medicines[todayKey] ?? [];
 
-  final hasNotReviewed =
-      medicinesToday.any((med) => _getStatusLabel(med) == 'Not Reviewed');
+    final hasNotReviewed =
+        medicinesToday.any((med) => _getStatusLabel(med) == 'Not Reviewed');
 
-  if (hasNotReviewed) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.black87,
-        elevation: 6,
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+    if (hasNotReviewed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.black87,
+          elevation: 6,
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          content: Text(
+              'Please review all medicines for $todayKey before proceeding.'),
+          duration: const Duration(seconds: 1),
         ),
-        content: Text(
-            'Please review all medicines for $todayKey before proceeding.'),
-        duration: const Duration(seconds: 1),
-      ),
-    );
-    return;
-  }
-
-  final nextDate = today.add(const Duration(days: 1));
-  final nextKey = DateFormat('yyyy-MM-dd').format(nextDate);
-
-  // Ensure that you are not overwriting existing data
-  if (!widget.medicines.containsKey(nextKey)) {
-    widget.medicines[nextKey] = [];
-  }
-
-  // Retrieve today's kept medicines
-  final todayKeptList =
-      medicinesToday.where((med) => med.status != "Remove").toList();
-
-  // Generate the next day's list based on today's kept medicines
-  final generatedNextDayList = todayKeptList
-      .map((med) => MedicineEntry(
-            name: med.name,
-            addedOn: nextDate,
-            isNew: false,
-            isKept: false,
-            isMarkedForRemoval: false,
-            showKeepRemoveAlways: false,
-            markedRemovalTime: null,
-            lastKeptOrRemovedDate: null,
-            status: "Not Reviewed",
-          ))
-      .toList();
-
-  // Add new medicines to the next day's list without removing existing ones
-  for (var med in generatedNextDayList) {
-    if (!widget.medicines[nextKey]!.any((existingMed) => existingMed.name == med.name)) {
-      widget.medicines[nextKey]!.add(med);
+      );
+      return;
     }
+
+    final nextDate = today.add(const Duration(days: 1));
+    final nextKey = DateFormat('yyyy-MM-dd').format(nextDate);
+
+    // Ensure that you are not overwriting existing data
+    if (!widget.medicines.containsKey(nextKey)) {
+      widget.medicines[nextKey] = [];
+    }
+
+    // Retrieve today's kept medicines
+    final todayKeptList =
+        medicinesToday.where((med) => med.status != "Remove").toList();
+
+    // Generate the next day's list based on today's kept medicines
+    final generatedNextDayList = todayKeptList
+        .map((med) => MedicineEntry(
+              name: med.name,
+              addedOn: nextDate,
+              isNew: false,
+              isKept: false,
+              isMarkedForRemoval: false,
+              showKeepRemoveAlways: false,
+              markedRemovalTime: null,
+              lastKeptOrRemovedDate: null,
+              status: "Not Reviewed",
+            ))
+        .toList();
+
+    // Add new medicines to the next day's list without removing existing ones
+    for (var med in generatedNextDayList) {
+      if (!widget.medicines[nextKey]!
+          .any((existingMed) => existingMed.name == med.name)) {
+        widget.medicines[nextKey]!.add(med);
+      }
+    }
+
+    setState(() {
+      _selectedDate = nextDate;
+    });
+
+    // Save the updated date information in the database
+    await MedicineDBHelper().updateDate(nextDate);
   }
-
-  setState(() {
-    _selectedDate = nextDate;
-  });
-
-  // Save the updated date information in the database
-  await MedicineDBHelper().updateDate(nextDate);
-}
 
   void _decreaseDate() {
     setState(() {
@@ -496,6 +832,18 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                                           fontWeight:
                                                               FontWeight.bold,
                                                           color: Colors.black,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    trailing: TextButton(
+                                                      onPressed: () {},
+                                                      child: Text(
+                                                        medicine.dosage ??
+                                                            "No dosage specified",
+                                                        style:
+                                                            GoogleFonts.poppins(
+                                                          fontSize: 14,
+                                                          color: Colors.black54,
                                                         ),
                                                       ),
                                                     ),

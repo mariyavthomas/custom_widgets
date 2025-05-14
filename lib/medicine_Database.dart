@@ -37,7 +37,8 @@ class MedicineDBHelper {
             isNew INTEGER,
             showKeepRemoveAlways INTEGER,
             markedRemovalTime TEXT,
-            lastKeptOrRemovedDate TEXT
+            lastKeptOrRemovedDate TEXT,
+            dosage TEXT
           )
         ''');
       },
