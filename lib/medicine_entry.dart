@@ -1,3 +1,5 @@
+import 'dart:convert'; // for jsonEncode/jsonDecode
+
 class MedicineEntry {
   int? id;
   String name;
@@ -9,7 +11,8 @@ class MedicineEntry {
   bool showKeepRemoveAlways;
   DateTime? lastKeptOrRemovedDate;
   String? status;
-  String? dosage; // Added dateKey property
+  String? dosage;
+  List<String>? dosageTimes; // Changed from String? to List<String>?
 
   MedicineEntry({
     this.id,
@@ -23,6 +26,7 @@ class MedicineEntry {
     this.lastKeptOrRemovedDate,
     this.status = 'Not Reviewed',
     this.dosage,
+    this.dosageTimes,
   });
 
   Map<String, dynamic> toMap() {
@@ -37,8 +41,9 @@ class MedicineEntry {
       'showKeepRemoveAlways': showKeepRemoveAlways ? 1 : 0,
       'markedRemovalTime': markedRemovalTime?.toIso8601String(),
       'lastKeptOrRemovedDate': lastKeptOrRemovedDate?.toIso8601String(),
-    
-      'dosage': dosage,};
+      'dosage': dosage,
+      'dosageTimes': dosageTimes != null ? jsonEncode(dosageTimes) : null, // Store as JSON string
+    };
   }
 
   static MedicineEntry fromMap(Map<String, dynamic> map) {
@@ -58,6 +63,9 @@ class MedicineEntry {
           ? DateTime.parse(map['lastKeptOrRemovedDate'])
           : null,
       dosage: map['dosage'],
+      dosageTimes: map['dosageTimes'] != null
+          ? List<String>.from(jsonDecode(map['dosageTimes']))
+          : null,
     );
   }
 }
