@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:flutterintern/button.dart';
 import 'package:flutterintern/medicine_Database.dart';
 import 'package:flutterintern/medicine_entry.dart';
 
@@ -67,6 +68,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
   DateTime _selectedDate = DateTime.now();
   late MedicineDBHelper _databaseHelper;
   late Future<List<Map<String, dynamic>>> _medicinesFuture;
+  
   @override
   void initState() {
     super.initState();
@@ -639,6 +641,34 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         ElevatedButton(
+                            onPressed: () {
+                              // if (dosageValues.isNotEmpty) {
+                              //   setModalState(() {
+                              //     undoValues.add(dosageValues.removeLast());
+                              //     undoTimes.add(localDosageTimes.removeLast());
+                              //     timeIndex--;
+                              //   });
+                              // }
+                              if (undoValues.isNotEmpty) {
+                                setModalState(() {
+                                  dosageValues.add(undoValues.removeLast());
+                                  localDosageTimes.add(undoTimes.removeLast());
+                                  timeIndex++;
+                                });
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                side: const BorderSide(
+                                    color: Color.fromARGB(255, 212, 185, 226),
+                                    width: 1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              fixedSize: Size(
+                                  widget.buttonWidth - 50, widget.buttonHeight),
+                            ),
+                            child: Icon(Icons.undo)),
+                        ElevatedButton(
                           onPressed: () {
                             if (dosageValues.isNotEmpty) {
                               setModalState(() {
@@ -658,29 +688,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                             fixedSize: Size(
                                 widget.buttonWidth - 50, widget.buttonHeight),
                           ),
-                          child: const Text("Undo"),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            if (undoValues.isNotEmpty) {
-                              setModalState(() {
-                                dosageValues.add(undoValues.removeLast());
-                                localDosageTimes.add(undoTimes.removeLast());
-                                timeIndex++;
-                              });
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              side: const BorderSide(
-                                  color: Color.fromARGB(255, 212, 185, 226),
-                                  width: 1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            fixedSize: Size(
-                                widget.buttonWidth - 50, widget.buttonHeight),
-                          ),
-                          child: const Text("Redo"),
+                          child: const Text("Delete"),
                         ),
                       ],
                     ),
@@ -745,31 +753,33 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                         List<String> timeStrings = localDosageTimes
                             .map((t) => t?.format(context) ?? "null")
                             .toList();
-
+                        final key =
+                            DateFormat('yyyy-MM-dd').format(selectedDate!);
                         final newEntry = MedicineEntry(
                           name: medicineName!, // make sure it's not null
-                          addedOn: selectedDate ?? DateTime.now(),
+                          addedOn: selectedDate!,
                           dosage: finalDosage,
                           dosageTimes: timeStrings,
                           status: isEdit == false
                               ? "New"
-                              : status ?? "Not Reviewed",
+                              : widget.medicines[key]?[editIndex!].status ??
+                                  status ??
+                                  "Not Reviewed",
                         );
-                        print("Updating entry:");
-                        print("Name: ${newEntry.name}");
-                        print("Date: ${newEntry.addedOn}");
-                        print("Dosage: ${newEntry.dosage}");
-                        print("Times: ${newEntry.dosageTimes}");
-                        print("Status: ${newEntry.status}");
 
-                        final key =
-                            DateFormat('yyyy-MM-dd').format(selectedDate!);
                         //print(newEntry.status);
                         if (isEdit == true && editIndex != null) {
+                          print("Updating entry:");
+                          print("Name: ${newEntry.name}");
+                          print("Date: ${newEntry.addedOn}");
+                          print("Dosage: ${newEntry.dosage}");
+                          print("Times: ${newEntry.dosageTimes}");
+                          print("Status: ${newEntry.status}");
                           setState(() {
                             widget.medicines[key]![editIndex] = newEntry;
                           });
                           await MedicineDBHelper().updateMedicine(newEntry);
+                          setState(() {});
                         } else if (isEdit == false && editIndex == null) {
                           await MedicineDBHelper().insertMedicine(newEntry);
                           // await MedicineDBHelper().updateMedicine(newEntry);
@@ -779,7 +789,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                           });
                         }
 
-                        Navigator.pop(context);
+                        Navigator.pop(context, true);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor:
@@ -912,10 +922,12 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
 
   @override
   Widget build(BuildContext context) {
+    List<MenuSection> mainMenuData = [
+      _addmedicine(context)
+    ];
     final now = DateTime.now();
     final selectedKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final todayMedicines = widget.medicines[selectedKey] ?? [];
-    //print(todayMedicines);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -1037,13 +1049,11 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               // LEFT SIDE — Only for NEW
-                                              if (isAddedToday &&
-                                                      medicine.status =="New" &&
-                                                  medicine.isNew==true)
+                                              if (medicine.status == "New")
                                                 _buildLabelStrip(
                                                     "NEW", Colors.blue)
-                                                    
-                                              else if (showKeepLabel)
+                                              else if (medicine.status ==
+                                                  "Keep")
                                                 _buildLabelStrip(
                                                     "KEEP", Colors.green)
                                               else
@@ -1104,7 +1114,7 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
 
                                               // RIGHT SIDE — KEEP or REMOVE only
 
-                                              if (showRemoveLabel)
+                                              if (medicine.status == "Remove")
                                                 _buildLabelStrip(
                                                     "REMOVE",
                                                     const Color.fromARGB(
@@ -1143,25 +1153,32 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                 alignment: Alignment.bottomCenter,
                 child: Column(
                   children: [
-                    ElevatedButton(
-                      onPressed: _showAddMedicineBottomSheet,
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                              color: const Color.fromARGB(255, 212, 185, 226),
-                              width: 1), // Set your border color and width
-                          borderRadius: BorderRadius.circular(
-                              10), // Set border radius for rounded corners
+                    // ElevatedButton(
+                    //   onPressed: _showAddMedicineBottomSheet,
+                    //   style: ElevatedButton.styleFrom(
+                    //     shape: RoundedRectangleBorder(
+                    //       side: BorderSide(
+                    //           color: const Color.fromARGB(255, 212, 185, 226),
+                    //           width: 1), // Set your border color and width
+                    //       borderRadius: BorderRadius.circular(
+                    //           10), // Set border radius for rounded corners
+                    //     ),
+                    //     fixedSize:
+                    //         Size(widget.buttonWidth + 145, widget.buttonHeight),
+                    //   ),
+                    //   child: Text(
+                    //     widget.addButtonText,
+                    //     style: GoogleFonts.poppins(
+                    //         fontSize: 18, color: Colors.black),
+                    //   ),
+                    // ),
+                        DynamicMenu(
+                          backgroundColor: Colors.white,
+                          showAppBar: false,
+                          title: "",
+                          menuData: mainMenuData,
+                          onMenuItemSelected: (menuItem) {},
                         ),
-                        fixedSize:
-                            Size(widget.buttonWidth + 145, widget.buttonHeight),
-                      ),
-                      child: Text(
-                        widget.addButtonText,
-                        style: GoogleFonts.poppins(
-                            fontSize: 18, color: Colors.black),
-                      ),
-                    ),
                     SizedBox(
                       height: 15,
                     ),
@@ -1234,3 +1251,18 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
     );
   }
 }
+
+ MenuSection _addmedicine(BuildContext context) {
+    return MenuSection(
+      title: "Search Engine",
+      items: [
+        MenuItem(
+          shortcut: 'S',
+          label: 'Generic Medicine Search',
+          onTap: () {
+           // Navigator.pushNamed(context, MainRouter.routeGenericMedicineSearch);
+          },
+        ),
+      ],
+    );
+  }
