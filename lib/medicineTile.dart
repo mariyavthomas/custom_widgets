@@ -1,6 +1,8 @@
+// ignore_for_file: avoid_unnecessary_containers
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:flutterintern/button.dart';
 import 'package:flutterintern/medicine_Database.dart';
 import 'package:flutterintern/medicine_entry.dart';
 
@@ -68,7 +70,6 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
   DateTime _selectedDate = DateTime.now();
   late MedicineDBHelper _databaseHelper;
   late Future<List<Map<String, dynamic>>> _medicinesFuture;
-  
   @override
   void initState() {
     super.initState();
@@ -504,10 +505,15 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
     int timeIndex = localDosageTimes.where((t) => t != null).length;
     List<int> undoValues = [];
     List<TimeOfDay?> undoTimes = [];
+    List<FixedExtentScrollController> hourControllers = [];
+    List<FixedExtentScrollController> minuteControllers = [];
+    List<FixedExtentScrollController> ampmControllers = [];
+// Initialize controllers only once
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -532,43 +538,140 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                       children: dosageValues.asMap().entries.map((entry) {
                         final index = entry.key;
                         final value = entry.value;
-                        final time = localDosageTimes[index];
+                        TimeOfDay? time = localDosageTimes[index];
 
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SizedBox(
-                              height: 20,
-                              child: value == 1 && time != null
-                                  ? GestureDetector(
-                                      onTap: () async {
-                                        final pickedDateTime =
-                                            await showOmniDateTimePicker(
-                                          context: context,
-                                          type: OmniDateTimePickerType.time,
-                                          initialDate: DateTime(
-                                            DateTime.now().year,
-                                            DateTime.now().month,
-                                            DateTime.now().day,
-                                            time.hour,
-                                            time.minute,
+                              height: 30,
+                              child: value == 1
+                                  ? Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // Hour Picker (12-hour format)
+                                        SizedBox(
+                                          width: 10,
+                                          height: 30,
+                                          child: CupertinoPicker(
+                                            scrollController:
+                                                FixedExtentScrollController(
+                                              initialItem:
+                                                  (time!.hourOfPeriod == 0
+                                                          ? 12
+                                                          : time.hourOfPeriod) -
+                                                      1,
+                                            ),
+                                            itemExtent: 30,
+                                            onSelectedItemChanged: (int index) {
+                                              final hour = index + 1 == 12
+                                                  ? 0
+                                                  : index + 1;
+                                              final adjustedHour =
+                                                  time!.period == DayPeriod.pm
+                                                      ? hour + 12
+                                                      : hour;
+                                              setModalState(() {
+                                                localDosageTimes[index] =
+                                                    TimeOfDay(
+                                                        hour: adjustedHour,
+                                                        minute: time!.minute);
+                                              });
+                                            },
+                                            children: List.generate(
+                                              12,
+                                              (index) => Center(
+                                                child: Text(
+                                                  (index + 1)
+                                                      .toString()
+                                                      .padLeft(2, '0'),
+                                                  style: GoogleFonts.poppins(
+                                                      fontSize: 8),
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                        );
-                                        if (pickedDateTime != null) {
-                                          final pickedTime =
-                                              TimeOfDay.fromDateTime(
-                                                  pickedDateTime);
-                                          setModalState(() {
-                                            localDosageTimes[index] =
-                                                pickedTime;
-                                          });
-                                        }
-                                      },
-                                      child: Text(
-                                        time.format(context),
-                                        style: GoogleFonts.poppins(
-                                            fontSize: 12, color: Colors.black),
-                                      ),
+                                        ),
+                                        Text(": ",
+                                            style: GoogleFonts.poppins(
+                                                fontSize: 8)),
+                                        // Minute Picker
+                                        SizedBox(
+                                          width: 10,
+                                          height: 30,
+                                          child: CupertinoPicker(
+                                            scrollController:
+                                                FixedExtentScrollController(
+                                              initialItem: time.minute,
+                                            ),
+                                            itemExtent: 30,
+                                            onSelectedItemChanged:
+                                                (int minute) {
+                                              setModalState(() {
+                                                localDosageTimes[index] =
+                                                    TimeOfDay(
+                                                        hour: time!.hour,
+                                                        minute: minute);
+                                              });
+                                            },
+                                            children: List.generate(
+                                              60,
+                                              (index) => Center(
+                                                child: Text(
+                                                  index
+                                                      .toString()
+                                                      .padLeft(2, '0'),
+                                                  style: GoogleFonts.poppins(
+                                                      fontSize: 8),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        //   const SizedBox(width: 4),
+                                        // AM/PM Picker
+                                        Container(
+                                          //   color: Colors.white,
+                                          width: 15,
+                                          height: 30,
+                                          child: CupertinoPicker(
+                                            scrollController:
+                                                FixedExtentScrollController(
+                                              initialItem:
+                                                  time.period == DayPeriod.am
+                                                      ? 0
+                                                      : 1,
+                                            ),
+                                            itemExtent: 30,
+                                            onSelectedItemChanged:
+                                                (int selectedIndex) {
+                                              final isPM = selectedIndex == 1;
+                                              int hour = time!.hourOfPeriod;
+                                              if (hour == 12) hour = 0;
+                                              final newHour =
+                                                  isPM ? hour + 12 : hour;
+                                              setModalState(() {
+                                                localDosageTimes[index] =
+                                                    TimeOfDay(
+                                                        hour: newHour,
+                                                        minute: time!.minute);
+                                              });
+                                            },
+                                            children: [
+                                              Center(
+                                                  child: Text("AM",
+                                                      style:
+                                                          GoogleFonts.poppins(
+                                                              fontSize: 8))),
+                                              Center(
+                                                  child: Text("PM",
+                                                      style:
+                                                          GoogleFonts.poppins(
+                                                              fontSize: 8))),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     )
                                   : const SizedBox(),
                             ),
@@ -593,16 +696,21 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                       padding: EdgeInsets.zero,
                                       visualDensity: VisualDensity.compact,
                                       onPressed: () {
-                                        setModalState(() {
-                                          final dt = DateTime(2020, 1, 1,
-                                                  time.hour, time.minute)
-                                              .add(const Duration(minutes: 30));
-                                          if (dt.hour < 24) {
-                                            localDosageTimes[index] = TimeOfDay(
-                                                hour: dt.hour,
-                                                minute: dt.minute);
-                                          }
-                                        });
+                                        if (time != null) {
+                                          final totalMinutes = time!.hour * 60 +
+                                              time!.minute +
+                                              30;
+                                          final newHour =
+                                              (totalMinutes ~/ 60) % 24;
+                                          final newMinute = totalMinutes % 60;
+                                          final newTime = TimeOfDay(
+                                              hour: newHour, minute: newMinute);
+
+                                          setModalState(() {
+                                            time = newTime;
+                                            localDosageTimes[index] = newTime;
+                                          });
+                                        }
                                       },
                                     ),
                                     const Divider(
@@ -614,17 +722,24 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                       padding: EdgeInsets.zero,
                                       visualDensity: VisualDensity.compact,
                                       onPressed: () {
-                                        setModalState(() {
-                                          final dt = DateTime(2020, 1, 1,
-                                                  time.hour, time.minute)
-                                              .subtract(
-                                                  const Duration(minutes: 30));
-                                          if (dt.hour >= 0) {
-                                            localDosageTimes[index] = TimeOfDay(
-                                                hour: dt.hour,
-                                                minute: dt.minute);
-                                          }
-                                        });
+                                        if (time != null) {
+                                          int totalMinutes = time!.hour * 60 +
+                                              time!.minute -
+                                              30;
+                                          if (totalMinutes < 0)
+                                            totalMinutes = 0;
+
+                                          final newHour =
+                                              (totalMinutes ~/ 60) % 24;
+                                          final newMinute = totalMinutes % 60;
+                                          final newTime = TimeOfDay(
+                                              hour: newHour, minute: newMinute);
+
+                                          setModalState(() {
+                                            time = newTime;
+                                            localDosageTimes[index] = newTime;
+                                          });
+                                        }
                                       },
                                     ),
                                   ],
@@ -641,55 +756,56 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         ElevatedButton(
-                            onPressed: () {
-                              // if (dosageValues.isNotEmpty) {
-                              //   setModalState(() {
-                              //     undoValues.add(dosageValues.removeLast());
-                              //     undoTimes.add(localDosageTimes.removeLast());
-                              //     timeIndex--;
-                              //   });
-                              // }
-                              if (undoValues.isNotEmpty) {
-                                setModalState(() {
-                                  dosageValues.add(undoValues.removeLast());
-                                  localDosageTimes.add(undoTimes.removeLast());
-                                  timeIndex++;
-                                });
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                side: const BorderSide(
-                                    color: Color.fromARGB(255, 212, 185, 226),
-                                    width: 1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              fixedSize: Size(
-                                  widget.buttonWidth - 50, widget.buttonHeight),
-                            ),
-                            child: Icon(Icons.undo)),
-                        ElevatedButton(
                           onPressed: () {
-                            if (dosageValues.isNotEmpty) {
+                            if (undoValues.isNotEmpty) {
                               setModalState(() {
-                                undoValues.add(dosageValues.removeLast());
-                                undoTimes.add(localDosageTimes.removeLast());
-                                timeIndex--;
+                                dosageValues.add(undoValues.removeLast());
+                                localDosageTimes.add(undoTimes.removeLast());
+                                timeIndex++;
                               });
                             }
                           },
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
-                              side: const BorderSide(
-                                  color: Color.fromARGB(255, 212, 185, 226),
-                                  width: 1),
                               borderRadius: BorderRadius.circular(10),
                             ),
+                            backgroundColor: Color.fromARGB(255, 210, 208, 208),
                             fixedSize: Size(
-                                widget.buttonWidth - 50, widget.buttonHeight),
+                                widget.buttonWidth - 30, widget.buttonHeight),
                           ),
-                          child: const Text("Delete"),
+                          child: const Icon(
+                            Icons.undo,
+                            color: Colors.black,
+                          ),
                         ),
+                        SizedBox(
+                          width: 10,
+                        ),
+                        ElevatedButton(
+                            onPressed: () {
+                              if (dosageValues.isNotEmpty) {
+                                setModalState(() {
+                                  undoValues.add(dosageValues.removeLast());
+                                  undoTimes.add(localDosageTimes.removeLast());
+                                  timeIndex--;
+                                });
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              backgroundColor:
+                                  Color.fromARGB(255, 210, 208, 208),
+                              fixedSize: Size(
+                                  widget.buttonWidth - 30, widget.buttonHeight),
+                            ),
+                            child: Text("Delete",
+                                style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    color: Colors.black) // Text color
+                                ) // ,),),
+                            ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -713,15 +829,26 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                 },
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
-                              side: const BorderSide(
-                                  color: Color.fromARGB(255, 212, 185, 226),
-                                  width: 1),
                               borderRadius: BorderRadius.circular(10),
                             ),
+                            backgroundColor: dosageValues.length >= 6
+                                ? Colors.grey // Color when limit is reached
+                                : Color(0xFF1E3A8A),
                             fixedSize: Size(
-                                widget.buttonWidth - 50, widget.buttonHeight),
+                                widget.buttonWidth - 25, widget.buttonHeight),
                           ),
-                          child: const Text("1"),
+                          child: Text(
+                            "1",
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              color: dosageValues.length >= 6
+                                  ? Colors.black
+                                  : Colors.white,
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 5,
                         ),
                         ElevatedButton(
                           onPressed: dosageValues.length >= 6
@@ -734,16 +861,24 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                                 },
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
-                              side: const BorderSide(
-                                  color: Color.fromARGB(255, 212, 185, 226),
-                                  width: 1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             fixedSize: Size(
-                                widget.buttonWidth - 50, widget.buttonHeight),
+                                widget.buttonWidth - 25, widget.buttonHeight),
+                            backgroundColor: dosageValues.length >= 6
+                                ? Colors.grey // Color when limit is reached
+                                : Color(0xFF1E3A8A), // Normal color
                           ),
-                          child: const Text("0"),
-                        ),
+                          child: Text(
+                            "0",
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              color: dosageValues.length >= 6
+                                  ? Colors.black
+                                  : Colors.white,
+                            ),
+                          ),
+                        )
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -792,19 +927,19 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                         Navigator.pop(context, true);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            const Color.fromARGB(255, 117, 125, 213),
+                        backgroundColor: Color(0xFF1E3A8A),
                         shape: RoundedRectangleBorder(
-                          side: const BorderSide(
-                              color: Color.fromARGB(255, 212, 185, 226),
-                              width: 1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         fixedSize:
                             Size(widget.buttonWidth + 145, widget.buttonHeight),
                       ),
-                      child: const Text("OK"),
-                    ),
+                      child: Text(
+                        "OK",
+                        style: GoogleFonts.poppins(
+                            fontSize: 16, color: Colors.white),
+                      ),
+                    )
                   ],
                 ),
               ),
@@ -922,9 +1057,6 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
 
   @override
   Widget build(BuildContext context) {
-    List<MenuSection> mainMenuData = [
-      _addmedicine(context)
-    ];
     final now = DateTime.now();
     final selectedKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final todayMedicines = widget.medicines[selectedKey] ?? [];
@@ -1061,56 +1193,167 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
 
                                               // MAIN CONTENT
                                               Expanded(
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(
-                                                      12.0),
-                                                  child: ListTile(
-                                                    contentPadding:
-                                                        const EdgeInsets.all(
-                                                            12),
-                                                    title: Center(
-                                                      child: Text(
-                                                        medicine.name,
-                                                        style:
-                                                            GoogleFonts.poppins(
-                                                          fontSize: 17,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: Colors.black,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    trailing: TextButton(
-                                                      onPressed: () {
-                                                        print(medicine.status);
-                                                        _showAddDosageBottomSheet(
-                                                            medicineName:
-                                                                medicine.name,
-                                                            selectedDate:
-                                                                medicine
-                                                                    .addedOn,
-                                                            isEdit: true,
-                                                            editIndex: index,
-                                                            dosage:
-                                                                medicine.dosage,
-                                                            dosageTimes: medicine
-                                                                .dosageTimes,
-                                                            status: medicine
-                                                                .status);
-                                                      },
-                                                      child: Text(
-                                                        medicine.dosage ??
-                                                            "No dosage specified",
-                                                        style:
-                                                            GoogleFonts.poppins(
-                                                          fontSize: 14,
-                                                          color: Colors.black54,
+                                                  child:
+                                                      //  ListTile(
+                                                      //   contentPadding:
+                                                      //       const EdgeInsets.all(
+                                                      //           12),
+                                                      //   title: Center(
+                                                      //     child: Text(
+                                                      //       medicine.name,
+                                                      //       style:
+                                                      //           GoogleFonts.poppins(
+                                                      //         fontSize: 17,
+                                                      //         fontWeight:
+                                                      //             FontWeight.bold,
+                                                      //         color: Colors.black,
+                                                      //       ),
+                                                      //     ),
+                                                      //   ),
+                                                      // trailing: TextButton(
+                                                      //   onPressed: () {
+                                                      //     print(medicine.status);
+                                                      //     _showAddDosageBottomSheet(
+                                                      //         medicineName:
+                                                      //             medicine.name,
+                                                      //         selectedDate:
+                                                      //             medicine
+                                                      //                 .addedOn,
+                                                      //         isEdit: true,
+                                                      //         editIndex: index,
+                                                      //         dosage:
+                                                      //             medicine.dosage,
+                                                      //         dosageTimes: medicine
+                                                      //             .dosageTimes,
+                                                      //         status: medicine
+                                                      //             .status);
+                                                      //   },
+                                                      //   child: Padding(
+                                                      //     padding: const EdgeInsets.only(left: 15),
+                                                      //     child: Container(
+                                                      //       height: 70,
+                                                      //       width: 150,
+                                                      //       child: Column(
+                                                      //         children: [
+                                                      //           Expanded(
+                                                      //             child: Text(medicine.dosageTimes?.join(", ") ?? "",
+                                                      //             style:
+                                                      //                   GoogleFonts.poppins(
+                                                      //                 fontSize: 6,
+
+                                                      //                 color: Colors.black54,
+                                                      //               ),
+                                                      //             ),
+                                                      //           ),
+                                                      //           Text(
+                                                      //             medicine.dosage ??
+                                                      //                 "No dosage specified",
+                                                      //             style:
+                                                      //                 GoogleFonts.poppins(
+                                                      //               fontSize: 14,
+                                                      //               fontWeight: FontWeight.bold,
+                                                      //               color: Colors.black54,
+                                                      //             ),
+                                                      //           ),
+                                                      //         ],
+                                                      //       ),
+                                                      //     ),
+                                                      //   ),
+                                                      //   ),
+                                                      // ),
+                                                      Row(
+                                                children: [
+                                                  Align(
+                                                    alignment:
+                                                        Alignment.centerRight,
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              left: 15),
+                                                      child: Expanded(
+                                                        child: Text(
+                                                          medicine.name,
+                                                          style: GoogleFonts
+                                                              .poppins(
+                                                            fontSize: 17,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: Colors.black,
+                                                          ),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                                ),
-                                              ),
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            left: 120, top: 40),
+                                                    child: Expanded(
+                                                      child: Container(
+                                                        width: 120,
+                                                        child: Column(
+                                                          //mainAxisAlignment: MainAxisAlignment.start,
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Text(
+                                                              medicine.dosageTimes
+                                                                      ?.join(
+                                                                          ", ") ??
+                                                                  "",
+                                                              style: GoogleFonts
+                                                                  .poppins(
+                                                                fontSize: 6,
+                                                                color: Colors
+                                                                    .black,
+                                                              ),
+                                                            ),
+                                                            TextButton(
+                                                              onPressed: () {
+                                                                print(medicine
+                                                                    .status);
+                                                                _showAddDosageBottomSheet(
+                                                                    medicineName:
+                                                                        medicine
+                                                                            .name,
+                                                                    selectedDate:
+                                                                        medicine
+                                                                            .addedOn,
+                                                                    isEdit:
+                                                                        true,
+                                                                    editIndex:
+                                                                        index,
+                                                                    dosage: medicine
+                                                                        .dosage,
+                                                                    dosageTimes:
+                                                                        medicine
+                                                                            .dosageTimes,
+                                                                    status: medicine
+                                                                        .status);
+                                                              },
+                                                              child: Text(
+                                                                medicine.dosage ??
+                                                                    "No dosage specified",
+                                                                style:
+                                                                    GoogleFonts
+                                                                        .poppins(
+                                                                  fontSize: 14,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  color: Colors
+                                                                      .black,
+                                                                ),
+                                                              ),
+                                                            )
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  )
+                                                ],
+                                              )),
 
                                               // RIGHT SIDE — KEEP or REMOVE only
 
@@ -1153,32 +1396,24 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                 alignment: Alignment.bottomCenter,
                 child: Column(
                   children: [
-                    // ElevatedButton(
-                    //   onPressed: _showAddMedicineBottomSheet,
-                    //   style: ElevatedButton.styleFrom(
-                    //     shape: RoundedRectangleBorder(
-                    //       side: BorderSide(
-                    //           color: const Color.fromARGB(255, 212, 185, 226),
-                    //           width: 1), // Set your border color and width
-                    //       borderRadius: BorderRadius.circular(
-                    //           10), // Set border radius for rounded corners
-                    //     ),
-                    //     fixedSize:
-                    //         Size(widget.buttonWidth + 145, widget.buttonHeight),
-                    //   ),
-                    //   child: Text(
-                    //     widget.addButtonText,
-                    //     style: GoogleFonts.poppins(
-                    //         fontSize: 18, color: Colors.black),
-                    //   ),
-                    // ),
-                        DynamicMenu(
-                          backgroundColor: Colors.white,
-                          showAppBar: false,
-                          title: "",
-                          menuData: mainMenuData,
-                          onMenuItemSelected: (menuItem) {},
+                    ElevatedButton(
+                      onPressed: _showAddMedicineBottomSheet,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF1E3A8A),
+                        shape: RoundedRectangleBorder(
+                          //border color and width
+                          borderRadius: BorderRadius.circular(
+                              10), // Set border radius for rounded corners
                         ),
+                        fixedSize:
+                            Size(widget.buttonWidth + 145, widget.buttonHeight),
+                      ),
+                      child: Text(
+                        widget.addButtonText,
+                        style: GoogleFonts.poppins(
+                            fontSize: 18, color: Colors.white),
+                      ),
+                    ),
                     SizedBox(
                       height: 15,
                     ),
@@ -1187,22 +1422,17 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                       children: [
                         ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(
-                                    color: const Color.fromARGB(
-                                        255, 212, 185, 226),
-                                    width:
-                                        1), // Set your border color and width
-                                borderRadius: BorderRadius.circular(
-                                    10), // Set border radius for rounded corners
-                              ),
-                              fixedSize: Size(
-                                widget.buttonWidth - 40,
-                                widget.buttonHeight,
-                              ),
-                              backgroundColor:
-                                  const Color.fromARGB(255, 117, 125, 213),
-                            ),
+                                shape: RoundedRectangleBorder(
+                                  // and width
+                                  borderRadius: BorderRadius.circular(
+                                      10), // Set border radius for rounded corners
+                                ),
+                                fixedSize: Size(
+                                  widget.buttonWidth - 40,
+                                  widget.buttonHeight,
+                                ),
+                                backgroundColor:
+                                    Color.fromARGB(255, 210, 208, 208)),
                             onPressed: _decreaseDate,
                             child: Text("Prev Day",
                                 style: GoogleFonts.poppins(
@@ -1216,18 +1446,12 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
                         ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               shape: RoundedRectangleBorder(
-                                side: BorderSide(
-                                  color:
-                                      const Color.fromARGB(255, 212, 185, 226),
-                                  width: 1,
-                                ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-
                               fixedSize: Size(
                                   widget.buttonWidth - 40, widget.buttonHeight),
-                              backgroundColor: const Color.fromARGB(255, 117,
-                                  125, 213), // Normal background color
+                              backgroundColor:
+                                  Color.fromARGB(255, 210, 208, 208),
                             ),
                             onPressed: _increaseDate,
                             child: Text("Next Day",
@@ -1251,18 +1475,3 @@ class _MedicineListWidgetState extends State<MedicineListWidget> {
     );
   }
 }
-
- MenuSection _addmedicine(BuildContext context) {
-    return MenuSection(
-      title: "Search Engine",
-      items: [
-        MenuItem(
-          shortcut: 'S',
-          label: 'Generic Medicine Search',
-          onTap: () {
-           // Navigator.pushNamed(context, MainRouter.routeGenericMedicineSearch);
-          },
-        ),
-      ],
-    );
-  }

@@ -373,17 +373,17 @@ class _DynamicMenuState extends State<DynamicMenu> {
       onKeyEvent: _handleKeyEvent,
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        decoration: BoxDecoration(
-          color: bgColor,
-          boxShadow: const [
-            BoxShadow(
-              color: Color.fromRGBO(0, 0, 0, 0.1),
-              offset: Offset(-2, 0),
-              blurRadius: 15,
-              spreadRadius: 1,
-            ),
-          ],
-        ),
+        // decoration: BoxDecoration(
+        // //  color: bgColor,
+        //   boxShadow: const [
+        //     BoxShadow(
+        //       color: Color.fromRGBO(0, 0, 0, 0.1),
+        //       offset: Offset(-2, 0),
+        //       blurRadius: 15,
+        //       spreadRadius: 1,
+        //     ),
+        //   ],
+        // ),
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
